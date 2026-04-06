@@ -63,6 +63,10 @@ function rewriteM3U8(text, manifestUrl, referer) {
   }).join("\n");
 }
 
+// Vercel: allow up to 60s for large video stream piping
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const rawUrl  = searchParams.get("url");

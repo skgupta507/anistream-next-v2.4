@@ -1,12 +1,29 @@
 /**
  * api.js — Client-side fetch helpers
  * All calls go to /api/* (same origin) — no secrets exposed to browser.
+ *
+ * FIX: On Vercel, SSR/API routes run server-side where window is undefined.
+ * The original code fell back to "http://localhost:3000" which always fails
+ * in production. We now resolve the correct base URL from env vars:
+ *   - NEXT_PUBLIC_SITE_URL  → your custom domain (set in Vercel dashboard)
+ *   - VERCEL_URL            → auto-set by Vercel to the deployment URL
+ *   - fallback              → http://localhost:3000 (local dev only)
  */
 
 const BASE = "/api";
 
+function getOrigin() {
+  if (typeof window !== "undefined") return window.location.origin;
+  // Server-side rendering on Vercel: window doesn't exist.
+  // NEXT_PUBLIC_SITE_URL = your production domain, e.g. https://mysite.vercel.app
+  // VERCEL_URL = auto-injected by Vercel, e.g. mysite-abc123.vercel.app (no https://)
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+}
+
 async function apiFetch(path, params = {}) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const origin = getOrigin();
   const url    = new URL(BASE + path, origin);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
@@ -20,7 +37,7 @@ async function apiFetch(path, params = {}) {
 }
 
 async function cryPost(action, body = {}) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const origin = getOrigin();
   const res = await fetch(`${origin}${BASE}/stream/crysoline`, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
@@ -54,9 +71,10 @@ export const api = {
     mapOne: (anilistId, sourceId) =>
       cryPost("mapOne", { anilistId, sourceId }),
 
-    /** Get episode list from a specific source */
-    episodes: (sourceId, mappedId) =>
-      cryPost("episodes", { sourceId, mappedId }),
+    /** Get episode list from a specific source.
+     *  Pass anilistId so the server can auto-fix stale slugs on 404. */
+    episodes: (sourceId, mappedId, anilistId) =>
+      cryPost("episodes", { sourceId, mappedId, ...(anilistId ? { anilistId } : {}) }),
 
     /** Get streaming servers (only for sources with hasServers:true) */
     servers: (sourceId, mappedId, episodeId) =>

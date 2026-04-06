@@ -9,16 +9,21 @@ export async function GET(request) {
 
   try {
     // Exchange code for access token
+    // AniList requires application/x-www-form-urlencoded, NOT JSON
+    const params = new URLSearchParams();
+    params.append("grant_type",    "authorization_code");
+    params.append("client_id",     process.env.ANILIST_CLIENT_ID || "");
+    params.append("client_secret", process.env.ANILIST_CLIENT_SECRET || "");
+    params.append("redirect_uri",  process.env.ANILIST_REDIRECT_URI || "http://localhost:3000/api/auth/callback");
+    params.append("code",          code);
+
     const tokenRes = await fetch(ANILIST_TOKEN_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        grant_type:    "authorization_code",
-        client_id:     process.env.ANILIST_CLIENT_ID,
-        client_secret: process.env.ANILIST_CLIENT_SECRET,
-        redirect_uri:  process.env.ANILIST_REDIRECT_URI || "http://localhost:3000/api/auth/callback",
-        code,
-      }),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: params.toString(),
     });
     const tokenData = await tokenRes.json();
     if (!tokenData.access_token) throw new Error("No access token");

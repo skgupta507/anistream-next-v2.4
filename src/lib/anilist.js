@@ -13,10 +13,7 @@ const ANILIST = "https://graphql.anilist.co";
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ── Rate limiter ──────────────────────────────────────────────────────────────
-// AniList allows 90 req/min. We self-limit to 60 req/min (1 per 1000ms)
-// to stay well clear of the limit even with bursts.
-// This is a simple token bucket implemented as a queue of pending resolvers.
-const RATE_LIMIT_MS = 1000; // minimum ms between requests
+const RATE_LIMIT_MS = 1000;
 let   _lastRequest  = 0;
 let   _queue        = Promise.resolve();
 
@@ -30,29 +27,16 @@ function rateLimit() {
   return _queue;
 }
 
-// Track if AniList is currently blocked so we can fail fast
-// instead of queuing more requests that will also fail.
 let _blockedUntil = 0;
 
-/**
- * AniList GraphQL query with rate limiting + retry on 429/403.
- *
- * Rate limit: self-throttled to 60 req/min (AniList allows 90).
- * On 429: respect Retry-After header, mark blocked, fail fast for other callers.
- * On 403: short wait, 2 retries only (retrying a hard block too many times
- *         makes the block longer — so we give up quickly and serve cache).
- */
 async function query(gql, variables = {}) {
-  // Fail fast if we know AniList is currently blocking us
   if (_blockedUntil > Date.now()) {
     const remaining = Math.ceil((_blockedUntil - Date.now()) / 1000);
     throw new Error(`AniList blocked — ${remaining}s remaining`);
   }
 
-  // Wait for our rate limit slot
   await rateLimit();
 
-  // 2 retries max on 5xx; 1 retry on 403/429 (more makes blocks worse)
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const { data } = await axios.post(
@@ -66,7 +50,6 @@ async function query(gql, variables = {}) {
           },
         }
       );
-      // Successful request — clear any block state
       _blockedUntil = 0;
       return data?.data;
 
@@ -78,12 +61,10 @@ async function query(gql, variables = {}) {
         const blockMs    = Math.min(retryAfter * 1000, 120_000);
         _blockedUntil    = Date.now() + blockMs;
         console.warn(`[anilist] 429 — blocked for ${retryAfter}s`);
-        // No retry — other requests should fail fast too
         throw new Error(`AniList rate limited — retry after ${retryAfter}s`);
       }
 
       if (status === 403) {
-        // Mark blocked for 30s — retrying a 403 too eagerly deepens the block
         _blockedUntil = Date.now() + 30_000;
         console.warn(`[anilist] 403 — blocked for 30s (attempt ${attempt + 1}/3)`);
         if (attempt < 2) { await sleep(5000); continue; }
@@ -117,16 +98,28 @@ const MEDIA_FRAGMENT = `
   season
   seasonYear
   averageScore
+  meanScore
   popularity
   genres
+  source
   studios(isMain: true) { nodes { name } }
   startDate { year month day }
   endDate   { year month day }
   trailer { id site }
   synonyms
   nextAiringEpisode { airingAt episode }
-  externalLinks { url site }
+  externalLinks { url site type language }
+  rankings { rank type allTime season year }
+  tags { name rank isMediaSpoiler category }
 `;
+
+/** Format an AniList date object { year, month, day } → "YYYY-MM-DD" */
+function formatDate(d) {
+  if (!d || !d.year) return "";
+  const mm = d.month ? "-" + String(d.month).padStart(2, "0") : "";
+  const dd = d.day   ? "-" + String(d.day).padStart(2, "0")   : "";
+  return d.year + mm + dd;
+}
 
 // Normalise a raw AniList media object to our app's shape
 export function normalizeMedia(m) {
@@ -134,7 +127,7 @@ export function normalizeMedia(m) {
   const title = m.title?.english || m.title?.romaji || m.title?.native || "";
   const slug  = toSlug(title, m.id);
   return {
-    id:          slug,               // used for /anime/[id] routes
+    id:          slug,
     anilistId:   m.id,
     malId:       m.idMal,
     name:        title,
@@ -144,25 +137,31 @@ export function normalizeMedia(m) {
     description: m.description || "",
     type:        m.format || "",
     status:      m.status || "",
-    rating:      m.averageScore ? `${m.averageScore}%` : "",
-    duration:    m.duration ? `${m.duration}m` : "",
+    rating:      m.averageScore ? m.averageScore + "%" : "",
+    duration:    m.duration ? m.duration + "m" : "",
     genres:      m.genres || [],
     studios:     m.studios?.nodes?.map(s => s.name).join(", ") || "",
-    season:      m.season && m.seasonYear ? `${m.season} ${m.seasonYear}` : "",
+    season:      m.season && m.seasonYear ? m.season + " " + m.seasonYear : "",
     episodes: {
       sub: m.episodes || 0,
       dub: 0,
     },
-    startDate: m.startDate
-      ? `${m.startDate.year || ""}${m.startDate.month ? `-${String(m.startDate.month).padStart(2,"0")}` : ""}${m.startDate.day ? `-${String(m.startDate.day).padStart(2,"0")}` : ""}`
-      : "",
-    nextAiring: m.nextAiringEpisode || null,
-    trailer:    m.trailer || null,
+    startDate:   formatDate(m.startDate),
+    endDate:     formatDate(m.endDate),
+    nextAiring:  m.nextAiringEpisode || null,
+    trailer:     m.trailer || null,
+    source:      m.source ? m.source.replace(/_/g, " ") : "",
+    meanScore:   m.meanScore || null,
+    rankings:    m.rankings || [],
+    tags:        (m.tags || []).filter(t => !t.isMediaSpoiler).sort((a,b) => (b.rank||0)-(a.rank||0)).slice(0, 12),
+    externalLinks: (m.externalLinks || []).filter(l =>
+      ["Crunchyroll", "Funimation", "Netflix", "Amazon", "HIDIVE",
+       "MyAnimeList", "AniList", "Official Site"].includes(l.site)
+    ),
   };
 }
 
-/** Convert title + id to a URL-safe slug: "Frieren: Beyond Journey's End" → "frieren-beyond-journeys-end-12345" */
-// Re-exported from utils.js so client components can import from there safely
+/** Convert title + id to a URL-safe slug */
 export function toSlug(title, id) { return _toSlug(title, id); }
 export function idFromSlug(slug) { return _idFromSlug(slug); }
 
@@ -171,29 +170,29 @@ export function idFromSlug(slug) { return _idFromSlug(slug); }
 export async function getHomePage() {
   const data = await query(`
     query {
-      trending: Page(page: 1, perPage: 12) {
+      trending: Page(page: 1, perPage: 15) {
         media(sort: TRENDING_DESC, type: ANIME, isAdult: false) { ${MEDIA_FRAGMENT} }
       }
-      popular: Page(page: 1, perPage: 16) {
+      popular: Page(page: 1, perPage: 15) {
         media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status: RELEASING) { ${MEDIA_FRAGMENT} }
       }
-      topRated: Page(page: 1, perPage: 10) {
+      topRated: Page(page: 1, perPage: 15) {
         media(sort: SCORE_DESC, type: ANIME, isAdult: false, format_not_in: [MUSIC]) { ${MEDIA_FRAGMENT} }
       }
-      upcoming: Page(page: 1, perPage: 10) {
+      upcoming: Page(page: 1, perPage: 15) {
         media(sort: POPULARITY_DESC, type: ANIME, isAdult: false, status: NOT_YET_RELEASED) { ${MEDIA_FRAGMENT} }
       }
-      recentlyUpdated: Page(page: 1, perPage: 16) {
+      recentlyUpdated: Page(page: 1, perPage: 15) {
         media(sort: UPDATED_AT_DESC, type: ANIME, isAdult: false, status: RELEASING) { ${MEDIA_FRAGMENT} }
       }
     }
   `);
 
-  const trending       = (data?.trending?.media       || []).map(normalizeMedia).filter(Boolean);
-  const popular        = (data?.popular?.media         || []).map(normalizeMedia).filter(Boolean);
-  const topRated       = (data?.topRated?.media        || []).map(normalizeMedia).filter(Boolean);
-  const upcoming       = (data?.upcoming?.media        || []).map(normalizeMedia).filter(Boolean);
-  const recentlyUpdated= (data?.recentlyUpdated?.media || []).map(normalizeMedia).filter(Boolean);
+  const trending        = (data?.trending?.media        || []).map(normalizeMedia).filter(Boolean);
+  const popular         = (data?.popular?.media          || []).map(normalizeMedia).filter(Boolean);
+  const topRated        = (data?.topRated?.media         || []).map(normalizeMedia).filter(Boolean);
+  const upcoming        = (data?.upcoming?.media         || []).map(normalizeMedia).filter(Boolean);
+  const recentlyUpdated = (data?.recentlyUpdated?.media  || []).map(normalizeMedia).filter(Boolean);
 
   return {
     spotlightAnimes:       trending.slice(0, 8).map((a, i) => ({ ...a, rank: i + 1, otherInfo: [a.type, a.season, a.status].filter(Boolean) })),
@@ -253,16 +252,13 @@ export async function getAnimeBySlug(slug) {
   if (!m) return null;
   const base = normalizeMedia(m);
 
-  // Related (seasons, prequels, sequels)
   const relatedAnimes = (m.relations?.edges || [])
     .filter(e => ["PREQUEL","SEQUEL","SIDE_STORY","PARENT","ALTERNATIVE"].includes(e.relationType))
     .map(e => normalizeMedia(e.node)).filter(Boolean);
 
-  // Recommended
   const recommendedAnimes = (m.recommendations?.nodes || [])
     .map(n => normalizeMedia(n.mediaRecommendation)).filter(Boolean);
 
-  // Characters
   const characters = (m.characters?.edges || []).map(e => ({
     id:    e.node?.id,
     name:  e.node?.name?.full || "",
@@ -270,17 +266,28 @@ export async function getAnimeBySlug(slug) {
     role:  e.role || "SUPPORTING",
   })).filter(c => c.name);
 
+  // Top ranking entry (e.g. #12 All Time, #3 This Season)
+  const topRank = (base.rankings || []).find(r => r.allTime) || (base.rankings || [])[0] || null;
+
   return {
     anime: {
       info: base,
       moreInfo: {
-        type:    m.format    || "",
-        status:  m.status    || "",
-        aired:   base.startDate || "",
-        studios: base.studios,
-        genres:  m.genres || [],
-        duration: base.duration,
-        season:  base.season,
+        type:         m.format    || "",
+        status:       m.status    || "",
+        aired:        base.startDate || "",
+        ended:        base.endDate   || "",
+        studios:      base.studios,
+        genres:       m.genres || [],
+        duration:     base.duration,
+        season:       base.season,
+        source:       base.source,
+        score:        base.meanScore ? base.meanScore + "/100" : "",
+        rank:         topRank ? "#" + topRank.rank + (topRank.allTime ? " All Time" : "") : "",
+        tags:         base.tags,
+        synonyms:     (m.synonyms || []).slice(0, 4),
+        externalLinks: base.externalLinks,
+        trailer:      base.trailer,
       },
     },
     relatedAnimes,
@@ -302,23 +309,22 @@ export async function getCategoryPage(category, page = 1) {
     "recently-added":   { sort: "ID_DESC" },
   };
 
-  // Genre support: "genre/action"
   let genre = null;
   if (category.startsWith("genre/")) {
     genre = category.replace("genre/", "").replace(/-/g, " ")
-      .replace(/\b\w/g, c => c.toUpperCase()); // "sci-fi" → "Sci-Fi"
+      .replace(/\b\w/g, c => c.toUpperCase());
   }
 
   const cfg = queryMap[category] || { sort: "POPULARITY_DESC" };
-  const sortEnum = cfg.sort;
-  const statusFilter = cfg.status ? `status: ${cfg.status}` : "";
-  const genreFilter  = genre ? `genre: "${genre}"` : "";
+  const sortEnum     = cfg.sort;
+  const statusFilter = cfg.status ? "status: " + cfg.status : "";
+  const genreFilter  = genre ? "genre: \"" + genre + "\"" : "";
 
   const data = await query(`
     query($page: Int) {
       Page(page: $page, perPage: 24) {
         pageInfo { total currentPage lastPage hasNextPage }
-        media(sort: ${sortEnum}, type: ANIME, isAdult: false ${statusFilter ? `, ${statusFilter}` : ""} ${genreFilter ? `, ${genreFilter}` : ""}, format_not_in: [MUSIC]) {
+        media(sort: ${sortEnum}, type: ANIME, isAdult: false ${statusFilter ? ", " + statusFilter : ""} ${genreFilter ? ", " + genreFilter : ""}, format_not_in: [MUSIC]) {
           ${MEDIA_FRAGMENT}
         }
       }
@@ -335,11 +341,6 @@ export async function getCategoryPage(category, page = 1) {
   };
 }
 
-/**
- * Fetch episode metadata from AniList for a given anime (by AniList ID).
- * Returns: { episodes: [{number, title, airDate}], totalEpisodes }
- * Note: AniList doesn't have episode lists for all anime; returns count-based fallback.
- */
 export async function getAniListEpisodeMeta(anilistId) {
   const data = await query(`
     query($id: Int) {
@@ -362,12 +363,10 @@ export async function getAniListEpisodeMeta(anilistId) {
   const m = data?.Media;
   if (!m) return { episodes: [], totalEpisodes: 0, title: "", malId: null };
 
-  const title      = m.title?.english || m.title?.romaji || "";
-  const totalEps   = m.episodes || m.nextAiringEpisode?.episode || 0;
-  const airNodes   = m.airingSchedule?.nodes || [];
+  const title    = m.title?.english || m.title?.romaji || "";
+  const totalEps = m.episodes || m.nextAiringEpisode?.episode || 0;
+  const airNodes = m.airingSchedule?.nodes || [];
 
-  // Build episode list — AniList only has airing dates, not titles
-  // Air dates come from AniList airingSchedule
   const episodes = Array.from({ length: totalEps }, (_, i) => {
     const node = airNodes.find(n => n.episode === i + 1);
     return {
@@ -376,13 +375,9 @@ export async function getAniListEpisodeMeta(anilistId) {
     };
   });
 
-  // Extract TMDB ID from AniList externalLinks
-  // Site name varies: "Themoviedb", "TheMovieDb", "TMDB" etc — use helper for robust matching
-  // Extract TMDB ID from externalLinks (used ONLY for iframe embed providers)
   const tmdbInfo = _extractTmdb(m.externalLinks || []);
   const tmdbId   = tmdbInfo?.tmdbId || null;
 
-  // All title variants for matching fallback
   const allTitles = [
     m.title?.english, m.title?.romaji, m.title?.native,
     ...(m.synonyms || [])

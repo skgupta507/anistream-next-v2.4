@@ -27,7 +27,7 @@ export default function Section({
       {loading ? (
         /* Skeleton grid */
         <div className={styles.row}>
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: 15 }).map((_, i) => (
             <div key={i} className={styles.skelCard}>
               <div className={`skeleton ${styles.skelPoster}`} />
               <div className={`skeleton ${styles.skelLine}`}
@@ -45,9 +45,9 @@ export default function Section({
           )}
         </div>
       ) : (
-        /* Responsive wrap grid — no more single-row scroll */
+        /* Responsive wrap grid — capped at 15 cards */
         <div className={styles.row}>
-          {animes.map((a, i) => (
+          {animes.slice(0, 15).map((a, i) => (
             <AnimeCard key={a.id || i} anime={a} rank={ranked ? i + 1 : null} />
           ))}
         </div>

@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { idFromSlug } from "@/lib/utils";
 import { PROVIDERS, buildEmbedUrl, SAFE_PROVIDERS } from "@/lib/providers";
-import { CRYSOLINE_SOURCES, DEFAULT_SOURCE_ID } from "@/lib/crysoline";
+import { CRYSOLINE_SOURCES, DEFAULT_SOURCE_ID, FALLBACK_SOURCE_IDS } from "@/lib/crysoline";
 import { saveProgress } from "@/lib/watchProgress";
 import HlsPlayer from "./HlsPlayer";
 import CommentsSection from "./CommentsSection";
@@ -99,13 +99,56 @@ export default function WatchClient({ animeId, epSlug }) {
     progressSaved.current = true;
   }, [anime, currentEp, animeId]);
 
-  // ── Auto-load AnimeGG when episode list is ready ───────────────────────────
+  // ── Auto-load: try AnimeGG + fallback sources in parallel ───────────────────
+  // All sources race simultaneously. First one with episodes wins.
+  // If all fail → auto-switch to embedded player (no user action needed).
+  const streamRaceRan = useRef(false);
   useEffect(() => {
-    if (!currentEp) return;
-    // Trigger default source (AnimeGG) automatically
-    handleSourceClick(DEFAULT_SOURCE_ID);
+    if (!currentEp || !anilistId) return;
+    if (streamRaceRan.current) return;
+    streamRaceRan.current = true;
+
+    const allSrcIds = [DEFAULT_SOURCE_ID, ...FALLBACK_SOURCE_IDS];
+    let settled = false;
+
+    const trySource = async (sourceId) => {
+      try {
+        const data = await api.crysoline.mapOne(anilistId, sourceId);
+        if (!data?.mappedId || settled) return null;
+        const eps = await api.crysoline.episodes(sourceId, data.mappedId, anilistId);
+        if (eps?.episodes?.length > 0 && !settled) {
+          return { sourceId, mappedId: data.mappedId, episodes: eps.episodes };
+        }
+      } catch { /* source failed */ }
+      return null;
+    };
+
+    (async () => {
+      // Fire all source lookups at the same time
+      const promises = allSrcIds.map(id => trySource(id));
+      // Use allSettled + check each result in order of resolution
+      const results = await Promise.allSettled(promises);
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value && !settled) {
+          settled = true;
+          const { sourceId, mappedId, episodes } = r.value;
+          console.log(`[watch] source found: ${sourceId} (${episodes.length} eps)`);
+          setSourceMap(prev => ({ ...prev, [sourceId]: mappedId }));
+          setActiveSrcId(sourceId);
+          setCryEps(episodes);
+          return;
+        }
+      }
+
+      // All sources failed — switch to embedded player automatically
+      if (!settled) {
+        console.log("[watch] all Crysoline sources failed — switching to embedded player");
+        setSourceMode("embedded");
+      }
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [epSlug, currentEp?.epSlug]);
+  }, [currentEp?.epSlug, anilistId]);
 
   // ── Select source and load its episodes ───────────────────────────────────
   const selectSource = useCallback(async (sourceId, mappedId) => {
@@ -119,11 +162,12 @@ export default function WatchClient({ animeId, epSlug }) {
 
     setCryEpsLoad(true);
     try {
-      const d = await api.crysoline.episodes(sourceId, mappedId);
+      // Pass anilistId so the server can auto-fix stale mappings on 404
+      const d = await api.crysoline.episodes(sourceId, mappedId, anilistId);
       setCryEps(d.episodes || []);
     } catch { setCryEps([]); }
     finally { setCryEpsLoad(false); }
-  }, []);
+  }, [anilistId]);
 
   // ── Fetch stream for current episode ─────────────────────────────────────
   const fetchStream = useCallback(async (subType = crySubType, server = cryServer) => {

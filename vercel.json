@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "src/app/api/stream/crysoline/route.js": {
+      "maxDuration": 60
+    },
+    "src/app/api/proxy/route.js": {
+      "maxDuration": 60
+    },
+    "src/app/api/anime/info/[id]/route.js": {
+      "maxDuration": 30
+    },
+    "src/app/api/anime/episodes/[id]/route.js": {
+      "maxDuration": 30
+    },
+    "src/app/api/anime/home/route.js": {
+      "maxDuration": 30
+    }
+  }
+}

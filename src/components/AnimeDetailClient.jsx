@@ -99,9 +99,16 @@ export default function AnimeDetailClient({ id }) {
             )}
 
             <div className={styles.metaGrid}>
-              {moreInfo?.aired   && <MetaRow label="Aired"  val={moreInfo.aired} />}
-              {moreInfo?.studios && <MetaRow label="Studio" val={moreInfo.studios} />}
-              {moreInfo?.season  && <MetaRow label="Season" val={moreInfo.season} />}
+              {moreInfo?.aired   && <MetaRow label="Aired"   val={moreInfo.aired} />}
+              {moreInfo?.ended   && moreInfo.ended !== moreInfo.aired && <MetaRow label="Ended"   val={moreInfo.ended} />}
+              {moreInfo?.studios && <MetaRow label="Studio"  val={moreInfo.studios} />}
+              {moreInfo?.season  && <MetaRow label="Season"  val={moreInfo.season} />}
+              {moreInfo?.source  && <MetaRow label="Source"  val={moreInfo.source} />}
+              {moreInfo?.score   && <MetaRow label="Score"   val={moreInfo.score} />}
+              {moreInfo?.rank    && <MetaRow label="Rank"    val={moreInfo.rank} />}
+              {moreInfo?.synonyms?.length > 0 && (
+                <MetaRow label="Also Known As" val={moreInfo.synonyms.join(", ")} />
+              )}
               {moreInfo?.genres?.length > 0 && (
                 <div className={styles.metaRow}>
                   <span className={styles.metaLabel}>Genres</span>
@@ -110,6 +117,16 @@ export default function AnimeDetailClient({ id }) {
                       <Link key={g}
                         href={`/browse?category=genre/${g.toLowerCase().replace(/ /g, "-")}`}
                         className="tag">{g}</Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {moreInfo?.tags?.length > 0 && (
+                <div className={styles.metaRow}>
+                  <span className={styles.metaLabel}>Tags</span>
+                  <div className={styles.genreRow}>
+                    {moreInfo.tags.slice(0, 8).map(t => (
+                      <span key={t.name} className="tag" title={t.rank + "% match"}>{t.name}</span>
                     ))}
                   </div>
                 </div>
@@ -137,7 +154,28 @@ export default function AnimeDetailClient({ id }) {
                 className={styles.browseBtn}>
                 Browse Similar
               </Link>
+              {moreInfo?.trailer?.id && (
+                <a
+                  href={`https://www.youtube.com/watch?v=${moreInfo.trailer.id}`}
+                  target="_blank" rel="noreferrer noopener"
+                  className={styles.trailerBtn}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <polygon points="5,3 19,12 5,21"/>
+                  </svg>
+                  Trailer
+                </a>
+              )}
             </div>
+            {moreInfo?.externalLinks?.length > 0 && (
+              <div className={styles.externalLinks}>
+                {moreInfo.externalLinks.map(l => (
+                  <a key={l.site} href={l.url} target="_blank" rel="noreferrer noopener"
+                    className={styles.extLink}>
+                    {l.site}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -210,7 +248,7 @@ export default function AnimeDetailClient({ id }) {
             {related.length > 0 && (
               <RelatedSection
                 title="Related Anime"
-                items={related}
+                items={related.slice(0, 15)}
                 viewAllHref={`/browse?category=top-airing`}
               />
             )}
@@ -219,7 +257,7 @@ export default function AnimeDetailClient({ id }) {
             {recs.length > 0 && (
               <RelatedSection
                 title="You Might Also Like"
-                items={recs}
+                items={recs.slice(0, 15)}
                 viewAllHref={`/browse?category=most-popular`}
               />
             )}

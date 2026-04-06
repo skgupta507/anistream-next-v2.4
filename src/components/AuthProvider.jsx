@@ -20,27 +20,9 @@ export function AuthProvider({ children }) {
 
   /* ── Kick off AniList OAuth (implicit token flow) ────────────── */
   function login() {
-    const clientId = process.env.NEXT_PUBLIC_ANILIST_CLIENT_ID;
-    if (!clientId) {
-      alert(
-        "AniList Client ID not configured.\n" +
-        "Add NEXT_PUBLIC_ANILIST_CLIENT_ID to .env.local"
-      );
-      return;
-    }
-
-    const origin      = typeof window !== "undefined" ? window.location.origin : "";
-    const redirectUri = `${origin}/auth/callback`;
-
-    // Use implicit/token flow so no server secret is needed on the client.
-    // If you want the full code-exchange flow, redirect to /api/auth/login instead.
-    const url =
-      `https://anilist.co/api/v2/oauth/authorize` +
-      `?client_id=${clientId}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&response_type=token`;
-
-    window.location.href = url;
+    // Use Authorization Code flow — redirect to server-side login handler
+    // which builds the correct URL with client_id, redirect_uri, response_type=code
+    window.location.href = "/api/auth/login";
   }
 
   /* ── Logout: clear httpOnly cookie + local state ─────────────── */

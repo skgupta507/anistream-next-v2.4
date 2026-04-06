@@ -20,10 +20,15 @@ import {
 } from "@/lib/cache";
 import {
   CRYSOLINE_SOURCES, EN_SOURCE_IDS, ALL_SOURCE_IDS,
+  STALE_MAPPING,
   mapAnilistToSource,
   mapAnilistToEnSources, mapAnilistToAllSources, mapAnilistSequential,
   getEpisodesFromSource, getServersFromSource, getSourcesFromSource,
 } from "@/lib/crysoline";
+import { getAniListEpisodeMeta } from "@/lib/anilist";
+
+// Increase Vercel serverless function timeout — sequential mapping needs more than the 10s default
+export const maxDuration = 60;
 
 export async function POST(request) {
   try {
@@ -34,7 +39,7 @@ export async function POST(request) {
 
       // ── MAP ONE ───────────────────────────────────────────────────────
       case "mapOne": {
-        const { anilistId, sourceId } = body;
+        const { anilistId, sourceId, titles: bodyTitles } = body;
         if (!anilistId || !sourceId) return err("anilistId and sourceId required");
 
         const dbMappings = await loadSourceMappings(anilistId);
@@ -46,9 +51,19 @@ export async function POST(request) {
 
         const cacheKey = `cryo_map1:${anilistId}:${sourceId}`;
         const cached   = await getCachedAsync(cacheKey);
-        if (cached) return ok({ ...cached, fromCache: "redis" });
+        if (cached && cached.found !== false) return ok({ ...cached, fromCache: "redis" });
 
-        const mappedId = await mapAnilistToSource(anilistId, sourceId);
+        // Resolve titles for fallback mapping (AnimeGG title-slug derivation).
+        // Use titles passed in body first; if absent fetch from AniList (adds ~200ms).
+        let titles = Array.isArray(bodyTitles) ? bodyTitles.filter(Boolean) : [];
+        if (titles.length === 0 && sourceId === "animegg") {
+          try {
+            const meta = await getAniListEpisodeMeta(anilistId);
+            titles = (meta.allTitles || []).filter(Boolean);
+          } catch { /* fallback silently */ }
+        }
+
+        const mappedId = await mapAnilistToSource(anilistId, sourceId, titles);
         const src      = CRYSOLINE_SOURCES.find(s => s.id === sourceId);
         const result   = { sourceId, mappedId: mappedId||null, sourceName: src?.name||sourceId, found: !!mappedId };
 
@@ -56,6 +71,8 @@ export async function POST(request) {
           saveSourceMapping(anilistId, sourceId, mappedId).catch(() => {});
           setCachedAsync(cacheKey, result, 86400).catch(() => {});
         } else {
+          // Cache "not found" for 1h to avoid hammering — but don't cache permanently
+          // so it can be retried after Crysoline indexes new anime
           setCachedAsync(cacheKey, result, 3600).catch(() => {});
         }
         return ok(result);
@@ -105,16 +122,50 @@ export async function POST(request) {
 
       // ── EPISODES ──────────────────────────────────────────────────────
       case "episodes": {
-        const { sourceId, mappedId } = body;
+        const { sourceId, mappedId, anilistId } = body;
         if (!sourceId || !mappedId) return err("sourceId and mappedId required");
 
         const cacheKey = `cryo_eps:${sourceId}:${mappedId}`;
         const cached   = await getCachedAsync(cacheKey);
         if (cached) return ok(cached);
 
-        const episodes = await getEpisodesFromSource(sourceId, mappedId);
-        const result   = { episodes: episodes||[], count: episodes?.length||0 };
+        let episodes = await getEpisodesFromSource(sourceId, mappedId);
 
+        // ── Stale mapping detected (upstream returned 404) ────────────────
+        // The slug saved in DB is outdated. Delete it, re-map, and retry once.
+        if (episodes === STALE_MAPPING) {
+          console.log(`[crysoline] stale mapping for ${sourceId}:${mappedId} — re-mapping`);
+
+          if (anilistId) {
+            // Purge the bad mapping from DB and memory cache
+            await deleteSourceMapping(anilistId, sourceId).catch(() => {});
+            await setCachedAsync(`cryo_map1:${anilistId}:${sourceId}`, { __purged: true }, 1).catch(() => {});
+
+            // Re-fetch the correct mapped ID from Crysoline
+            const freshMappedId = await mapAnilistToSource(anilistId, sourceId);
+
+            if (freshMappedId && freshMappedId !== mappedId) {
+              console.log(`[crysoline] re-mapped ${sourceId}: ${mappedId} → ${freshMappedId}`);
+              // Persist the fresh mapping
+              saveSourceMapping(anilistId, sourceId, freshMappedId).catch(() => {});
+              setCachedAsync(`cryo_map1:${anilistId}:${sourceId}`, {
+                sourceId, mappedId: freshMappedId,
+                sourceName: CRYSOLINE_SOURCES.find(s => s.id === sourceId)?.name || sourceId,
+                found: true,
+              }, 86400).catch(() => {});
+
+              // Retry episode fetch with fresh ID
+              episodes = await getEpisodesFromSource(sourceId, freshMappedId);
+              if (episodes === STALE_MAPPING) episodes = []; // give up if still bad
+            } else {
+              episodes = []; // can't re-map — source genuinely doesn't have this anime
+            }
+          } else {
+            episodes = []; // no anilistId to re-map with — return empty gracefully
+          }
+        }
+
+        const result = { episodes: episodes || [], count: (episodes || []).length };
         if (result.count > 0) await setCachedAsync(cacheKey, result, 600);
         return ok(result);
       }

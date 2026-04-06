@@ -4,7 +4,7 @@
   margin-top: calc(-1 * var(--nav-h));
   overflow: hidden;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .bg {
@@ -28,8 +28,7 @@
 .thumbStrip {
   position: absolute;
   right: max(24px, calc((100vw - var(--container)) / 2 + 24px));
-  top: 50%;
-  transform: translateY(-50%);
+  top: calc(var(--nav-h) + 32px);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -77,16 +76,16 @@
   position: relative;
   z-index: 3;
   max-width: 560px;
-  padding:
-    calc(var(--nav-h) + 40px)
-    max(24px, calc((100vw - var(--container)) / 2 + 24px))
-    52px;
+  padding-top: calc(var(--nav-h) + 32px);
+  padding-bottom: 52px;
   padding-left: max(24px, calc((100vw - var(--container)) / 2 + 24px));
+  padding-right: max(24px, calc((100vw - var(--container)) / 2 + 24px));
   display: flex;
   flex-direction: column;
   gap: 12px;
   animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
   transition: opacity 0.25s ease;
+  align-self: flex-start;
 }
 .contentFade { opacity: 0; }
 

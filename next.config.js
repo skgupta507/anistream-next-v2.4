@@ -39,6 +39,12 @@ const nextConfig = {
       "https://api.crysoline.moe",
       "https://*.disqus.com",
       "https://disqus.com",
+      "https://identitytoolkit.googleapis.com",
+      "https://*.googleapis.com",
+      "https://*.firebaseapp.com",
+      "https://*.firebase.com",
+      "https://theanimecommunity.com",
+      "https://*.theanimecommunity.com",
     ].join(" ");
 
     return [
@@ -49,9 +55,9 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.disqus.com https://disqus.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.disqus.com https://disqus.com https://theanimecommunity.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.disqus.com",
-              "font-src 'self' https://fonts.gstatic.com",
+              "font-src 'self' https://fonts.gstatic.com https://theanimecommunity.com",
               "img-src 'self' data: https: blob:",
               "media-src 'self' blob: data:",
               `frame-src ${frameHosts}`,

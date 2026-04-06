@@ -48,12 +48,13 @@ export default function Navbar() {
     { href: "/",                             label: "Home"     },
     { href: "/browse?category=top-airing",   label: "Explore"  },
     { href: "/browse?category=most-popular", label: "Popular"  },
-    { href: "/browse?category=upcoming",     label: "Schedule" },
+    { href: "/schedule",                     label: "Schedule" },
   ];
 
   const isActive = (href) => {
     const base = href.split("?")[0];
-    return pathname === base;
+    if (base === "/") return pathname === "/";
+    return pathname.startsWith(base);
   };
 
   return (

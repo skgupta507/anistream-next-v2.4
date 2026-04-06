@@ -9,11 +9,6 @@ const BROWSE_LINKS = [
   { href: "/browse?category=recently-updated",  label: "Recently Updated" },
 ];
 
-const GENRE_LINKS = [
-  "Action", "Comedy", "Drama", "Fantasy",
-  "Romance", "Thriller", "Sci-Fi", "Horror",
-];
-
 const SOCIAL_LINKS = [
   {
     label: "GitHub",
@@ -99,21 +94,6 @@ export default function Footer() {
             <Link key={l.href} href={l.href} className={styles.colLink}>
               <span className={styles.linkArrow}>›</span>
               {l.label}
-            </Link>
-          ))}
-        </div>
-
-        {/* ── Genres column ────────────────────────────────── */}
-        <div className={styles.col}>
-          <h4 className={styles.colHeading}>Genres</h4>
-          {GENRE_LINKS.map(g => (
-            <Link
-              key={g}
-              href={`/browse?category=genre/${g.toLowerCase().replace(/ /g, "-")}`}
-              className={styles.colLink}
-            >
-              <span className={styles.linkArrow}>›</span>
-              {g}
             </Link>
           ))}
         </div>
