@@ -1,170 +1,223 @@
-# AniStream — Full-Stack Next.js Anime Streaming Platform
+# 🎌 AnimeDex
 
-A single, unified full-stack anime streaming site built with **Next.js 14 App Router**.  
-No separate backend needed. API routes and frontend live in the same codebase and deploy as one app.
+A fast, modern anime streaming site built with **Next.js 14**. Pulls metadata from AniList's GraphQL API and streams episodes through multiple fallback providers — no single point of failure.
 
----
-
-## ⚡ Architecture
-
-```
-anistream/
-├── src/
-│   ├── app/
-│   │   ├── layout.js               # Root layout (Navbar + Footer)
-│   │   ├── page.js                 # Home (SSR with revalidation)
-│   │   ├── search/page.js
-│   │   ├── browse/page.js
-│   │   ├── anime/[id]/page.js      # Anime detail
-│   │   ├── watch/[animeId]/[episodeId]/page.js
-│   │   └── api/                    # ← All API routes (same app)
-│   │       ├── anime/home/route.js
-│   │       ├── anime/search/route.js
-│   │       ├── anime/info/[id]/route.js
-│   │       ├── anime/episodes/[id]/route.js
-│   │       ├── anime/category/[...slug]/route.js
-│   │       ├── stream/servers/[episodeId]/route.js
-│   │       └── stream/sources/route.js
-│   ├── lib/
-│   │   ├── scraper.js   # hianime.dk scraper (cheerio + axios)
-│   │   ├── cache.js     # In-memory TTL cache
-│   │   └── api.js       # Client-side fetch helper (calls /api/*)
-│   ├── components/      # All React client components
-│   └── styles/          # Global CSS design system
-├── next.config.js
-├── package.json
-└── .env.example
-```
-
-**How it works:**
-- Next.js API routes (`/api/*`) run on the server — they scrape `hianime.dk` using Cheerio + Axios
-- The frontend React components call those same `/api/*` routes — always same-origin
-- **Zero external API needed** after deployment
+![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)
+![AniList](https://img.shields.io/badge/AniList-GraphQL-02A9FF?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 ---
 
-## 🚀 Quick Start
+## ✨ Features
 
-```bash
-# 1. Install
-npm install
-
-# 2. Run dev server
-npm run dev
-# → http://localhost:3000
-```
-
-That's it. No backend to start separately.
-
----
-
-## 🏗️ Production Build
-
-```bash
-npm run build
-npm start
-```
+- **Spotlight banner** — rotating hero carousel of trending anime
+- **Browse & search** — filter by genre, status, season, and more
+- **Anime detail pages** — score, rank, source, tags, synonyms, trailer links, and external streaming links (Crunchyroll, Netflix, etc.)
+- **Episode player** — HLS native player with multi-server fallback (12+ providers)
+- **Airing schedule** — weekly calendar of currently airing episodes
+- **AniList OAuth login** — Authorization Code flow, token stored in httpOnly cookie
+- **User profile** — watch stats, recently watched, AniList list sync
+- **Episode comments** — TheAnimeCommunity embed with Disqus fallback
+- **Two-layer cache** — Upstash Redis → Turso SQLite → in-memory, zero config required
+- **Proxy route** — server-side HLS stream proxying with Range header support for seeking
 
 ---
 
-## ☁️ Deploy to Vercel (Recommended — Free)
+## 🛠 Tech Stack
 
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-
-# Or push to GitHub and connect repo at vercel.com
-```
-
-**Vercel settings:**
-- Framework: Next.js (auto-detected)
-- Build command: `npm run build`
-- Output directory: `.next` (auto)
-- No environment variables required for basic deployment
-
-Optional env var:
-```
-NEXT_PUBLIC_SITE_URL=https://your-app.vercel.app
-```
-
----
-
-## 🌐 Deploy to Railway / Render / Fly.io
-
-```bash
-# Build
-npm run build
-
-# Start
-npm start  # runs on PORT env var (default 3000)
-```
-
-Set `PORT` in your host's env settings if needed.
-
----
-
-## 🔧 Deploy to a VPS (Self-hosted)
-
-```bash
-# Install Node 18+
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Clone and install
-git clone <your-repo> && cd anistream
-npm install && npm run build
-
-# Run with PM2
-npm install -g pm2
-pm2 start npm --name "anistream" -- start
-pm2 save && pm2 startup
-```
-
-Use Nginx as a reverse proxy pointing to `localhost:3000`.
-
----
-
-## 📡 API Endpoints (Internal)
-
-All endpoints are Next.js Route Handlers — they run server-side and scrape `hianime.dk`.
-
-| Endpoint | Description | Cache TTL |
-|---|---|---|
-| `GET /api/anime/home` | Home data (spotlight, trending, top 10…) | 5 min |
-| `GET /api/anime/search?q=&page=` | Search results | 3 min |
-| `GET /api/anime/info/:id` | Anime details + seasons + related | 10 min |
-| `GET /api/anime/episodes/:id` | Full episode list | 5 min |
-| `GET /api/anime/category/:name?page=` | Browse by category or genre | 5 min |
-| `GET /api/stream/servers/:episodeId` | Available stream servers | 2 min |
-| `GET /api/stream/sources?episodeId=&server=&category=` | HLS stream URL + subtitle tracks | 2 min |
-
----
-
-## 🎨 Design System
-
-- **Font:** Syne (display) + DM Sans (body)
-- **Theme:** Deep dark — `#07080d` base, ember-red accent (`#e85d4a`), gold secondary (`#f0a500`)
-- **Components:** CSS Modules, fully responsive, no external UI library
-
----
-
-## 🛠️ Features
-
-| Feature | Details |
+| Layer | Technology |
 |---|---|
-| **Home** | Auto-rotating spotlight hero, trending, latest episodes, top airing, Top 10 sidebar |
-| **Search** | Live suggestion dropdown + full search page with pagination |
-| **Browse** | 20+ categories and genres with sidebar filter + paginated grid |
-| **Anime Detail** | Blurred hero, episode grid with filler markers, seasons, related/recommended |
-| **Watch** | HLS.js player, Sub/Dub/Raw server selector, episode sidebar, prev/next nav |
-| **Video Player** | Custom controls, quality selector, playback speed, volume, fullscreen, subtitle tracks |
+| Framework | Next.js 14 (App Router) |
+| UI | React 18, CSS Modules |
+| Metadata API | AniList GraphQL |
+| Streaming | Crysoline API + 12 iframe providers |
+| Auth | AniList OAuth 2.0 (Authorization Code) |
+| Cache L1 | Upstash Redis |
+| Cache L2 | Turso SQLite (libsql) |
+| Video | hls.js |
+| Comments | TheAnimeCommunity embed / Disqus |
 
 ---
 
-## ⚠️ Disclaimer
+## 📦 Getting Started
 
-AniStream does not host any video content. The scraper fetches publicly accessible data from `hianime.dk`.  
-Use responsibly and in accordance with your local laws.
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/skgupta507/animedex-next.git
+cd anistream
+npm install
+```
+
+### 2. Set up environment variables
+
+Copy the example file and fill in your keys:
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+# Required
+CRYSOLINE_API_KEY=your_crysoline_key
+
+# Optional but recommended
+TMDB_API_KEY=your_tmdb_key
+
+# Cache — Upstash Redis (free tier at upstash.com)
+UPSTASH_REDIS_REST_URL=https://your-endpoint.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_token
+
+# Cache — Turso SQLite (free tier at turso.tech)
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=your_token
+
+# AniList OAuth
+NEXT_PUBLIC_ANILIST_CLIENT_ID=your_client_id
+ANILIST_CLIENT_ID=your_client_id
+ANILIST_CLIENT_SECRET=your_client_secret
+ANILIST_REDIRECT_URI=http://localhost:3000/api/auth/callback
+```
+
+> The app works with zero cache config — it falls back to in-memory caching automatically. Adding Upstash and Turso is strongly recommended for production.
+
+### 3. Set up AniList OAuth
+
+1. Go to [anilist.co/settings/developer](https://anilist.co/settings/developer)
+2. Create a new client
+3. Set the **Redirect URI** to exactly: `http://localhost:3000/api/auth/callback`
+4. Copy the **Client ID** and **Client Secret** into `.env.local`
+
+> ⚠️ The redirect URI must match exactly — including the path `/api/auth/callback`.
+
+### 4. Run the dev server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── app/
+│   ├── page.js                  # Home page
+│   ├── anime/[id]/              # Anime detail page
+│   ├── watch/[id]/[ep]/         # Episode player
+│   ├── browse/                  # Browse by genre/category
+│   ├── search/                  # Search results
+│   ├── schedule/                # Weekly airing schedule
+│   ├── profile/                 # User profile (requires login)
+│   ├── auth/callback/           # AniList OAuth callback (client)
+│   └── api/
+│       ├── anime/               # Info, episodes, search, home, schedule
+│       ├── auth/                # Login, callback, session, logout, me
+│       ├── stream/              # Stream sources and servers
+│       ├── proxy/               # Server-side HLS proxy
+│       ├── cache/               # Cache stats and prune
+│       └── debug/               # Debug endpoints
+├── components/
+│   ├── Navbar.jsx
+│   ├── HomeClient.jsx
+│   ├── AnimeDetailClient.jsx    # Anime info page
+│   ├── WatchClient.jsx          # Video player page
+│   ├── HlsPlayer.jsx            # HLS video player
+│   ├── CommentsSection.jsx      # TAC / Disqus comments
+│   ├── AuthProvider.jsx         # Auth context
+│   ├── SpotlightBanner.jsx      # Hero carousel
+│   └── ...
+└── lib/
+    ├── anilist.js               # AniList GraphQL client
+    ├── auth.js                  # OAuth helpers
+    ├── cache.js                 # Three-layer cache
+    ├── providers.js             # Streaming provider registry
+    ├── crysoline.js             # Crysoline API client
+    ├── episodes.js              # Episode list builder
+    ├── tmdb.js                  # TMDB ID extraction
+    └── api.js                   # Client-side API wrapper
+```
+
+---
+
+## 🎬 Streaming Providers
+
+The player automatically cycles through providers if one fails. Supported providers:
+
+**Primary (TMDB-based):** Embeded Sources
+
+**Direct (Crysoline API):** Anime sources via the Crysoline API key
+
+---
+
+## ⚙️ Available Scripts
+
+```bash
+npm run dev      # Start dev server
+npm run build    # Production build
+npm run start    # Start production server
+npm run fresh    # Clear .next cache and start dev server
+npm run lint     # Run ESLint
+```
+
+---
+
+## 🚀 Deployment
+
+### Vercel (recommended)
+
+1. Push to GitHub
+2. Import the repo on [vercel.com](https://vercel.com)
+3. Add all environment variables from `.env.example` in the Vercel dashboard
+4. Update `ANILIST_REDIRECT_URI` to your production domain: `https://yourdomain.com/api/auth/callback`
+5. Update the redirect URI in your AniList developer settings to match
+
+### Self-hosted
+
+```bash
+npm run build
+npm run start
+```
+
+---
+
+## 🔒 Environment Variables Reference
+
+| Variable | Required | Description |
+|---|---|---|
+| `CRYSOLINE_API_KEY` | ✅ | Crysoline streaming API key |
+| `TMDB_API_KEY` | Recommended | TMDB key for provider matching |
+| `UPSTASH_REDIS_REST_URL` | Recommended | Upstash Redis URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Recommended | Upstash Redis token |
+| `TURSO_DATABASE_URL` | Recommended | Turso SQLite URL |
+| `TURSO_AUTH_TOKEN` | Recommended | Turso auth token |
+| `NEXT_PUBLIC_ANILIST_CLIENT_ID` | ✅ for login | AniList client ID (public) |
+| `ANILIST_CLIENT_ID` | ✅ for login | AniList client ID (server) |
+| `ANILIST_CLIENT_SECRET` | ✅ for login | AniList client secret |
+| `ANILIST_REDIRECT_URI` | ✅ for login | OAuth callback URL |
+| `NEXT_PUBLIC_DISQUS_SHORTNAME` | Optional | Disqus shortname for comments fallback |
+
+---
+
+## 📝 License
+
+MIT — free to use, modify, and distribute.
+
+---
+
+## 🙏 Credits
+
+- [AniList](https://anilist.co) — anime metadata & OAuth
+- [Crysoline](https://api.crysoline.moe) — primary streaming API
+- [TMDB](https://www.themoviedb.org) — movie/TV database for provider matching
+- [TheAnimeCommunity](https://theanimecommunity.com) — episode comments
+- [hls.js](https://github.com/video-dev/hls.js) — HLS video playback
