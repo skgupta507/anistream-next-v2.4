@@ -1,22 +1,21 @@
 name = "animedex-proxy"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
 
-# ── Deployment ────────────────────────────────────────────────────────────────
-# After `wrangler deploy`, your worker will be live at:
-#   https://anistream-proxy.<your-cf-subdomain>.workers.dev
+# ── IMPORTANT: Set NEXT_PUBLIC_PROXY_URL in Vercel to your worker URL ──────────
+# After deploying, your worker will be at:
+#   https://animedex-proxy.<your-subdomain>.workers.dev
 #
-# Set NEXT_PUBLIC_PROXY_URL in your Vercel env to that URL.
+# Add to Vercel env vars:
+#   NEXT_PUBLIC_PROXY_URL = https://animedex-proxy.<your-subdomain>.workers.dev
+#
+# ── Why the old proxy got 403 ─────────────────────────────────────────────────
+# The ALLOWED_ORIGIN check was rejecting requests because:
+#   1. Browser <video> elements and hls.js range requests often send NO origin header
+#   2. The check required origin OR referer to match your site domain
+#   3. When neither header was present → 403 Forbidden
+# Fixed: ALLOWED_ORIGIN check removed. Security is now via ALLOWED_HOSTS list only.
 
-# ── Environment variables ─────────────────────────────────────────────────────
 [vars]
-# Set this to your Vercel deployment URL to block external proxy abuse.
-# e.g. "https://yoursite.vercel.app" or your custom domain.
-# Leave empty ("") to allow all origins (less secure, fine for testing).
-ALLOWED_ORIGIN = "https://animedex.pp.ua"
-
-# ── Routes (optional custom domain) ──────────────────────────────────────────
-# Uncomment and fill in if you want the proxy on your own domain:
-# [[routes]]
-# pattern = "proxy.yourdomain.com/*"
-# zone_name = "yourdomain.com"
+# No ALLOWED_ORIGIN needed — security handled by the ALLOWED_HOSTS list in index.js.
+# To add more CDN hosts, edit the ALLOWED_HOSTS array in src/index.js.

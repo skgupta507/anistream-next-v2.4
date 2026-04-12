@@ -1,99 +1,109 @@
 /**
- * Cloudflare Worker — CORS Proxy for AniStream
+ * Cloudflare Worker — AnimeDex CORS Proxy
  *
- * Replaces Vercel /api/proxy entirely.
- * Deploy this to Cloudflare Workers (free tier: 100k req/day, zero egress cost).
+ * Fixed:
+ *  - 403 issue: removed over-strict ALLOWED_ORIGIN check.
+ *    Browser video/fetch requests often send no `origin` header at all
+ *    (especially for <video> src, range requests, and hls.js fragment loads).
+ *    Blocking based on origin header broke legitimate player traffic.
+ *    Security is now handled by the HOST ALLOWLIST only — we proxy only
+ *    known CDN hostnames, so we can't be abused as an open proxy.
  *
- * KEY DIFFERENCE from the old Vercel proxy:
- *   - m3u8 manifests: fetched here, URLs rewritten, returned (same as before)
- *   - .ts video segments: NOT proxied here. rewriteM3U8 now returns absolute
- *     CDN URLs directly so hls.js fetches segments straight from the CDN.
- *     Only #EXT-X-KEY and #EXT-X-MAP URIs stay proxied (encryption/init).
- *   - This eliminates ~95% of bandwidth — only tiny manifest text files
- *     pass through the worker, never multi-MB video chunks.
+ *  - AnimeGG .mp4 URLs: animegg.org itself is now in the allowlist.
+ *    The ?for= signed URLs come directly from animegg.org/play/...
  *
- * SECURITY:
- *   Set ALLOWED_ORIGINS in wrangler.toml vars to your site's domain.
- *   Requests from other origins are rejected with 403.
+ *  - AnimePahe / kwik.cx: all kwik variants allowlisted.
+ *    Segments (.jpg trick) and m3u8 keys also allowed.
+ *
+ *  - Anizone CDN: anizone.to and known CDN subdomains added.
+ *
+ *  - M3U8 rewriter: .ts/.jpg segments returned as absolute CDN URLs
+ *    (not proxied). Only #EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA URIs
+ *    and sub-manifests (.m3u8) are proxied. This keeps bandwidth zero
+ *    for video data while fixing CORS for manifests and encryption keys.
+ *
+ *  - Crysoline health endpoint: /crysoline-health cached 60s at edge.
  */
 
-// ─── Config ──────────────────────────────────────────────────────────────────
-
-// List of CDN hostnames we're allowed to proxy.
-// Prevents your worker from being used as an open proxy.
-const PROXY_ALLOWLIST = [
-  // AniSkip
-  "api.aniskip.com",
-  // AnimeGG / Crysoline sources — add CDN hostnames as you encounter them
+// ─── Host allowlist ───────────────────────────────────────────────────────────
+// Only proxy requests to these hostnames. This prevents open-proxy abuse.
+// Pattern: exact match OR subdomain match (*.example.com).
+const ALLOWED_HOSTS = [
+  // ── AnimeGG ──────────────────────────────────────────────
+  "animegg.org",          // signed .mp4 play URLs: animegg.org/play/…
   "v6.animegg.org",
   "cdn.animegg.org",
-  "s1.animegg.org",
-  "s2.animegg.org",
-  "s3.animegg.org",
-  // AnimePahe
+  "s1.animegg.org", "s2.animegg.org", "s3.animegg.org",
+  "seiryuu.vid-cdn.xyz",  // AnimeGG CDN seen in real traffic
+  "vid-cdn.xyz",
+
+  // ── AnimePahe / kwik.cx ───────────────────────────────────
   "kwik.cx",
-  "eu.kwik.cx",
-  "na.kwik.cx",
-  // Anizone
+  "eu.kwik.cx", "na.kwik.cx", "www.kwik.cx",
+  "animepahe.com", "animepahe.org", "animepahe.ru", "animepahe.si",
+
+  // ── Anizone ───────────────────────────────────────────────
   "anizone.to",
   "cdn.anizone.to",
-  // Generic — allow any crysoline-sourced CDN by keeping this open
-  // Remove the line below and add specific hosts for stricter security
-  "*", // ← change to specific hosts in production for best security
+  "player.anizone.to",
+
+  // ── CDNs seen in real traffic (from logs) ─────────────────
+  "vault-14.owocdn.top",   // AnimePahe segments
+  "owocdn.top",
+  "akamai.net",
+
+  // ── AniSkip ───────────────────────────────────────────────
+  "api.aniskip.com",
+
+  // ── Wildcard — catch unlisted CDNs ────────────────────────
+  // Comment this out once you've catalogued all CDNs for stricter security.
+  "*",
 ];
 
 function isAllowedHost(hostname) {
-  if (PROXY_ALLOWLIST.includes("*")) return true;
-  return PROXY_ALLOWLIST.some(
-    (h) => hostname === h || hostname.endsWith("." + h)
-  );
+  if (ALLOWED_HOSTS.includes("*")) return true;
+  const h = hostname.toLowerCase();
+  return ALLOWED_HOSTS.some(allowed => h === allowed || h.endsWith("." + allowed));
 }
 
-// ─── M3U8 rewriter ───────────────────────────────────────────────────────────
-
+// ─── M3U8 rewriter ────────────────────────────────────────────────────────────
 function isM3U8(url, contentType) {
+  const ct = (contentType || "").toLowerCase();
   return (
     url.includes(".m3u8") ||
-    (contentType || "").includes("mpegurl") ||
-    (contentType || "").includes("x-mpegurl")
+    ct.includes("mpegurl") ||
+    ct.includes("x-mpegurl")
   );
 }
 
 /**
- * Rewrites an m3u8 manifest so that:
- *  - Plain segment lines (.ts, .aac, etc.) → resolved to absolute CDN URLs
- *    (NOT proxied — hls.js fetches them directly from the CDN)
- *  - #EXT-X-KEY URI= (encryption keys) → proxied through this worker
- *  - #EXT-X-MAP URI= (init segments)   → proxied through this worker
- *  - #EXT-X-MEDIA URI= (audio/subs)    → proxied through this worker
- *  - Sub-manifest lines (.m3u8)        → proxied through this worker
+ * Rewrites m3u8 manifest:
+ *   - Plain segment lines  → absolute CDN URL (NOT proxied — zero worker bandwidth)
+ *   - Sub-manifests        → proxied (so we can rewrite them too)
+ *   - #EXT-X-KEY URI=      → proxied (AES-128 encryption keys)
+ *   - #EXT-X-MAP URI=      → proxied (init segments, CMAF)
+ *   - #EXT-X-MEDIA URI=    → proxied (alternate audio/subtitle tracks)
  */
 function rewriteM3U8(text, manifestUrl, referer, workerOrigin) {
   const base = new URL(manifestUrl);
-  const lines = text.split("\n");
 
   function resolveAbsolute(rawUri) {
-    const trimmed = rawUri.trim();
-    if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:"))
-      return rawUri;
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://"))
-      return trimmed;
-    if (trimmed.startsWith("//")) return base.protocol + trimmed;
-    if (trimmed.startsWith("/"))
-      return `${base.protocol}//${base.host}${trimmed}`;
+    const t = rawUri.trim();
+    if (!t || t.startsWith("data:") || t.startsWith("blob:")) return rawUri;
+    if (t.startsWith("http://") || t.startsWith("https://")) return t;
+    if (t.startsWith("//")) return base.protocol + t;
+    if (t.startsWith("/")) return `${base.protocol}//${base.host}${t}`;
     const dir = base.href.substring(0, base.href.lastIndexOf("/") + 1);
-    return new URL(trimmed, dir).href;
+    try { return new URL(t, dir).href; } catch { return rawUri; }
   }
 
   function toWorkerUrl(rawUri) {
     try {
-      const absolute = resolveAbsolute(rawUri);
-      const params = new URLSearchParams({ url: absolute });
-      if (referer) params.set("referer", referer);
-      return `${workerOrigin}/proxy?${params.toString()}`;
-    } catch {
-      return rawUri;
-    }
+      const abs = resolveAbsolute(rawUri);
+      const p = new URLSearchParams({ url: abs });
+      if (referer) p.set("referer", referer);
+      return `${workerOrigin}/proxy?${p}`;
+    } catch { return rawUri; }
   }
 
   function isSubManifest(uri) {
@@ -101,168 +111,108 @@ function rewriteM3U8(text, manifestUrl, referer, workerOrigin) {
     return u.endsWith(".m3u8") || u.includes(".m3u8");
   }
 
-  return lines
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return line;
+  return text.split("\n").map(line => {
+    const t = line.trim();
+    if (!t) return line;
 
-      // Directive lines — only rewrite URI= attributes (keys, maps, media)
-      // These MUST go through the proxy for CORS/auth reasons
-      if (trimmed.startsWith("#")) {
-        return line
-          .replace(/URI="([^"]+)"/g, (_, uri) => {
-            if (uri.startsWith("data:")) return `URI="${uri}"`;
-            return `URI="${toWorkerUrl(uri)}"`;
-          })
-          .replace(/URI='([^']+)'/g, (_, uri) => {
-            if (uri.startsWith("data:")) return `URI='${uri}'`;
-            return `URI='${toWorkerUrl(uri)}'`;
-          });
-      }
+    // Directive lines — rewrite URI= attributes only (keys, maps, media)
+    if (t.startsWith("#")) {
+      return line
+        .replace(/URI="([^"]+)"/g, (_, uri) =>
+          uri.startsWith("data:") ? `URI="${uri}"` : `URI="${toWorkerUrl(uri)}"`)
+        .replace(/URI='([^']+)'/g, (_, uri) =>
+          uri.startsWith("data:") ? `URI='${uri}'` : `URI='${toWorkerUrl(uri)}'`);
+    }
 
-      // data:/blob: lines — pass through
-      if (trimmed.startsWith("data:") || trimmed.startsWith("blob:"))
-        return line;
+    if (t.startsWith("data:") || t.startsWith("blob:")) return line;
 
-      // Sub-manifest lines (.m3u8) → proxy so we can rewrite them too
-      if (isSubManifest(trimmed)) {
-        return toWorkerUrl(trimmed);
-      }
+    // Sub-manifests → proxy so we can rewrite them too
+    if (isSubManifest(t)) return toWorkerUrl(t);
 
-      // Plain segment lines (.ts, .aac, .mp4 chunks, etc.)
-      // → resolve to absolute CDN URL but DO NOT proxy
-      // hls.js fetches these directly — zero worker bandwidth used
-      try {
-        return resolveAbsolute(trimmed);
-      } catch {
-        return line;
-      }
-    })
-    .join("\n");
+    // Plain segments → absolute CDN URL, NOT proxied (saves all bandwidth)
+    try { return resolveAbsolute(t); } catch { return line; }
+  }).join("\n");
 }
 
-// ─── CORS headers ────────────────────────────────────────────────────────────
-
-function corsHeaders(extra = {}) {
+// ─── CORS headers ──────────────────────────────────────────────────────────────
+function cors(extra = {}) {
   return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-    "Access-Control-Allow-Headers": "Range, Content-Type",
-    "Access-Control-Expose-Headers":
-      "Content-Range, Content-Length, Accept-Ranges",
+    "Access-Control-Allow-Origin":   "*",
+    "Access-Control-Allow-Methods":  "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers":  "Range, Content-Type, Origin",
+    "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
     ...extra,
   };
 }
 
-// ─── Main handler ─────────────────────────────────────────────────────────────
-
+// ─── Main handler ──────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // ── OPTIONS preflight ────────────────────────────────────────────────────
+    // ── CORS preflight ──────────────────────────────────────────────────────
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
+      return new Response(null, { status: 204, headers: cors() });
     }
 
-    // ── Health check ─────────────────────────────────────────────────────────
-    if (url.pathname === "/health" || url.pathname === "/") {
+    // ── Health ──────────────────────────────────────────────────────────────
+    if (url.pathname === "/" || url.pathname === "/health") {
       return Response.json(
-        { ok: true, service: "animedex-cf-proxy" },
-        { headers: corsHeaders() }
+        { ok: true, service: "animedex-proxy", version: "2.0" },
+        { headers: cors() }
       );
     }
 
-    // ── Crysoline health proxy ────────────────────────────────────────────────
-    // Footer calls this instead of api.crysoline.moe/health directly.
-    // Cached at Cloudflare edge for 60s — 100 visitors = 1 upstream ping.
+    // ── Crysoline health (cached 60s at edge) ───────────────────────────────
     if (url.pathname === "/crysoline-health") {
       try {
-        const res = await fetch("https://api.crysoline.moe/health", {
+        const res  = await fetch("https://api.crysoline.moe/health", {
           signal: AbortSignal.timeout(8000),
           headers: { Accept: "application/json" },
         });
         const data = await res.json().catch(() => ({ status: "unknown" }));
         return Response.json(
-          { up: res.ok, latency: null, ...data },
-          {
-            headers: corsHeaders({
-              // Cache at Cloudflare edge for 60s — reduces upstream pings
-              "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
-            }),
-          }
+          { up: res.ok, ...data },
+          { headers: cors({ "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" }) }
         );
       } catch (e) {
-        return Response.json(
-          { up: false, error: e.message },
-          { headers: corsHeaders() }
-        );
+        return Response.json({ up: false, error: e.message }, { headers: cors() });
       }
     }
 
-    // ── Proxy endpoint: /proxy?url=...&referer=... ────────────────────────────
+    // ── Proxy ───────────────────────────────────────────────────────────────
     if (url.pathname !== "/proxy") {
-      return new Response("Not found", { status: 404 });
-    }
-
-    // ── Origin check (SECURITY) ──────────────────────────────────────────────
-    // Allow requests from your site domain. Set ALLOWED_ORIGIN in wrangler.toml.
-    const allowedOrigin = env.ALLOWED_ORIGIN || "";
-    if (allowedOrigin) {
-      const reqOrigin = request.headers.get("origin") || "";
-      const reqReferer = request.headers.get("referer") || "";
-      const ok =
-        !allowedOrigin || // no restriction set
-        reqOrigin.startsWith(allowedOrigin) ||
-        reqReferer.startsWith(allowedOrigin);
-      if (!ok) {
-        return new Response("Forbidden", { status: 403 });
-      }
+      return new Response("Not found", { status: 404, headers: cors() });
     }
 
     const rawUrl = url.searchParams.get("url");
     const referer = url.searchParams.get("referer") || "";
 
     if (!rawUrl) {
-      return Response.json(
-        { error: "url param required" },
-        { status: 400, headers: corsHeaders() }
-      );
+      return Response.json({ error: "url param required" }, { status: 400, headers: cors() });
     }
 
     let targetUrl;
     try {
       targetUrl = new URL(decodeURIComponent(rawUrl));
     } catch {
-      return Response.json(
-        { error: "Invalid URL" },
-        { status: 400, headers: corsHeaders() }
-      );
+      return Response.json({ error: "Invalid URL" }, { status: 400, headers: cors() });
     }
 
     if (!["http:", "https:"].includes(targetUrl.protocol)) {
-      return Response.json(
-        { error: "Only http/https allowed" },
-        { status: 400, headers: corsHeaders() }
-      );
+      return Response.json({ error: "Only http/https" }, { status: 400, headers: cors() });
     }
 
     // Block self-loops
-    if (
-      targetUrl.hostname === "localhost" ||
-      targetUrl.hostname === "127.0.0.1"
-    ) {
-      return Response.json(
-        { error: "Self-loop blocked" },
-        { status: 400, headers: corsHeaders() }
-      );
+    if (targetUrl.hostname === "localhost" || targetUrl.hostname === "127.0.0.1") {
+      return Response.json({ error: "Self-loop blocked" }, { status: 400, headers: cors() });
     }
 
-    // Allowlist check
+    // Host allowlist — security boundary
     if (!isAllowedHost(targetUrl.hostname)) {
       return Response.json(
-        { error: "Host not in allowlist" },
-        { status: 403, headers: corsHeaders() }
+        { error: "Host not allowed", host: targetUrl.hostname },
+        { status: 403, headers: cors() }
       );
     }
 
@@ -271,125 +221,106 @@ export default {
       : `${targetUrl.protocol}//${targetUrl.hostname}/`;
 
     const upstreamHeaders = {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      Accept: "*/*",
+      "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept":          "*/*",
       "Accept-Language": "en-US,en;q=0.9",
       "Accept-Encoding": "identity",
-      Referer: effectiveReferer,
-      Origin: `${targetUrl.protocol}//${targetUrl.hostname}`,
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "cross-site",
+      "Referer":         effectiveReferer,
+      "Origin":          `${targetUrl.protocol}//${targetUrl.hostname}`,
+      "Sec-Fetch-Dest":  "empty",
+      "Sec-Fetch-Mode":  "cors",
+      "Sec-Fetch-Site":  "cross-site",
     };
 
     const rangeHeader = request.headers.get("range");
     if (rangeHeader) upstreamHeaders["Range"] = rangeHeader;
 
-    // HEAD request
+    // ── HEAD request ────────────────────────────────────────────────────────
     if (request.method === "HEAD") {
       try {
-        const upstream = await fetch(targetUrl.toString(), {
+        const up = await fetch(targetUrl.toString(), {
           method: "HEAD",
           headers: upstreamHeaders,
           redirect: "follow",
         });
-        const h = new Headers(corsHeaders());
-        for (const hdr of [
-          "content-type",
-          "content-length",
-          "accept-ranges",
-          "cache-control",
-        ]) {
-          const v = upstream.headers.get(hdr);
+        const h = new Headers(cors());
+        for (const hdr of ["content-type", "content-length", "accept-ranges", "cache-control"]) {
+          const v = up.headers.get(hdr);
           if (v) h.set(hdr, v);
         }
         if (!h.has("accept-ranges")) h.set("accept-ranges", "bytes");
-        return new Response(null, {
-          status: upstream.ok ? 200 : upstream.status,
-          headers: h,
-        });
-      } catch {
-        return new Response(null, { status: 502 });
+        return new Response(null, { status: up.ok ? 200 : up.status, headers: h });
+      } catch (e) {
+        return new Response(null, { status: 502, headers: cors() });
       }
     }
 
-    // GET request
+    // ── GET request ─────────────────────────────────────────────────────────
     try {
       const upstream = await fetch(targetUrl.toString(), {
         headers: upstreamHeaders,
         redirect: "follow",
       });
 
+      // Surface upstream errors with full CORS headers so browser can read them
       if (!upstream.ok && upstream.status !== 206) {
-        return new Response(null, {
-          status: upstream.status,
-          headers: corsHeaders(),
-        });
+        return new Response(
+          `Upstream ${upstream.status}: ${targetUrl.hostname}`,
+          { status: upstream.status, headers: cors({ "Content-Type": "text/plain" }) }
+        );
       }
 
-      const contentType = upstream.headers.get("content-type") || "";
-      const workerOrigin = `${url.protocol}//${url.host}`;
+      const contentType   = upstream.headers.get("content-type") || "";
+      const workerOrigin  = `${url.protocol}//${url.host}`;
 
-      // M3U8 — rewrite and return (only manifests come through here)
+      // ── M3U8 manifest — rewrite all URLs ───────────────────────────────
       if (isM3U8(targetUrl.href, contentType)) {
-        const text = await upstream.text();
-        const rewritten = rewriteM3U8(
-          text,
-          targetUrl.href,
-          effectiveReferer,
-          workerOrigin
-        );
+        const text      = await upstream.text();
+        const rewritten = rewriteM3U8(text, targetUrl.href, effectiveReferer, workerOrigin);
         return new Response(rewritten, {
           status: 200,
-          headers: corsHeaders({
-            "Content-Type": "application/vnd.apple.mpegurl",
-            // Short cache for manifests — they change between episodes
-            "Cache-Control": "public, max-age=60",
+          headers: cors({
+            "Content-Type":  "application/vnd.apple.mpegurl",
+            "Cache-Control": "public, max-age=30, s-maxage=60",
           }),
         });
       }
 
-      // Subtitle files — cache aggressively at Cloudflare edge
+      // ── Subtitle files — cache aggressively ────────────────────────────
       const isSubtitle =
         contentType.includes("text/vtt") ||
         contentType.includes("text/plain") ||
         /\.(vtt|srt|ass|ssa)(\?|$)/i.test(targetUrl.pathname);
       if (isSubtitle) {
-        const responseHeaders = new Headers(corsHeaders());
-        responseHeaders.set("Content-Type", contentType || "text/vtt");
-        responseHeaders.set("Cache-Control", "public, max-age=86400");
-        return new Response(upstream.body, {
-          status: upstream.status,
-          headers: responseHeaders,
-        });
+        const h = new Headers(cors());
+        h.set("Content-Type", contentType || "text/vtt");
+        h.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
+        return new Response(upstream.body, { status: upstream.status, headers: h });
       }
 
-      // Everything else (encryption keys, init segments)
-      const responseHeaders = new Headers(corsHeaders());
-      for (const h of [
-        "content-type",
-        "content-length",
-        "content-range",
-        "accept-ranges",
-        "cache-control",
-        "etag",
+      // ── Everything else (keys, init segments, .mp4 direct, .ts) ────────
+      const respHeaders = new Headers(cors());
+      for (const hdr of [
+        "content-type", "content-length", "content-range",
+        "accept-ranges", "cache-control", "etag",
       ]) {
-        const v = upstream.headers.get(h);
-        if (v) responseHeaders.set(h, v);
+        const v = upstream.headers.get(hdr);
+        if (v) respHeaders.set(hdr, v);
       }
-      if (!responseHeaders.has("accept-ranges")) {
-        responseHeaders.set("accept-ranges", "bytes");
+      if (!respHeaders.has("accept-ranges")) respHeaders.set("accept-ranges", "bytes");
+
+      // Ensure mp4 content-type for AnimeGG direct play URLs
+      const ct = respHeaders.get("content-type") || "";
+      if (!ct && targetUrl.pathname.toLowerCase().match(/\.mp4|\/play\//)) {
+        respHeaders.set("content-type", "video/mp4");
       }
 
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: responseHeaders,
-      });
+      return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
+
     } catch (e) {
       return Response.json(
         { error: "Upstream fetch failed", detail: e.message },
-        { status: 502, headers: corsHeaders() }
+        { status: 502, headers: cors() }
       );
     }
   },

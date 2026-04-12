@@ -78,7 +78,7 @@ export default function BrowseClient() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="16" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/>
         </svg>
-        {sidebarOpen ? "Hide Filters" : "Filters"}
+        {sidebarOpen ? "Seal the Gates" : "Open the Gates"}
       </button>
 
       <div className={styles.layout}>
@@ -160,7 +160,7 @@ export default function BrowseClient() {
           {/* Error */}
           {error && !loading && (
             <div className={styles.errMsg}>
-              <p>⚠ {error}</p>
+              <p>☠ {error}</p>
               <button onClick={() => window.location.reload()}>Retry</button>
             </div>
           )}

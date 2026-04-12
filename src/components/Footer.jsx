@@ -126,7 +126,7 @@ export default function Footer() {
                   ? styles.badgeUp
                   : styles.badgeDown
               }`}>
-                {cryUp === null ? "Checking…" : cryUp ? "Operational" : "Degraded"}
+                {cryUp === null ? "Consulting the oracle…" : cryUp ? "The pact holds" : "Pact weakening"}
               </span>
             </div>
             <p className={styles.statusNote}>Via Cloudflare edge · 60s cache</p>

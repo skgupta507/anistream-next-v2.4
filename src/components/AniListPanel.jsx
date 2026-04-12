@@ -75,7 +75,7 @@ export default function AniListPanel({
     setSaving(true); setError(null); setSuccess(null);
     try {
       await saveMediaListEntry({ mediaId: anilistId, ...patch });
-      setSuccess("Saved to AniList ✓");
+      setSuccess("Pact sealed ✓");
       setTimeout(() => setSuccess(null), 2500);
       // Reload entry
       const updated = await getMediaListEntry(anilistId);
@@ -89,12 +89,12 @@ export default function AniListPanel({
   }
 
   async function remove() {
-    if (!entry?.id || !confirm("Remove from your AniList?")) return;
+    if (!entry?.id || !confirm("Release this soul from your collection?")) return;
     setSaving(true);
     try {
       await deleteMediaListEntry(entry.id);
       setEntry(null);
-      setSuccess("Removed from AniList");
+      setSuccess("Soul released");
       setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
       setError(e.message);
@@ -151,7 +151,7 @@ export default function AniListPanel({
         </svg>
         {loading ? "Loading…" : currentStatus
           ? `${statusIcon[currentStatus]} ${STATUS_LABELS[currentStatus]}`
-          : "+ Add to AniList"}
+          : "+ Bind to AniList"}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"
           style={{ marginLeft: "auto", opacity: 0.5, transform: open ? "rotate(180deg)" : "", transition: "transform .2s" }}>
           <path d="M7 10l5 5 5-5z"/>

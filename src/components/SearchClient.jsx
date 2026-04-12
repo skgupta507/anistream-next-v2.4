@@ -59,8 +59,8 @@ export default function SearchClient() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
-        <p className={styles.heroLabel}>Search the Abyss</p>
-        <h1 className={styles.heroTitle}>Find Your Anime</h1>
+        <p className={styles.heroLabel}>Peer into the Void</p>
+        <h1 className={styles.heroTitle}>Name Your Obsession</h1>
 
         <form className={styles.searchBar} onSubmit={handleSubmit}>
           <div className={styles.inputWrap}>
@@ -71,7 +71,7 @@ export default function SearchClient() {
               className={styles.input}
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Search by title, genre, or studio…"
+              placeholder="Whisper the name of your desire…"
               autoFocus
             />
             {input && (
@@ -100,7 +100,7 @@ export default function SearchClient() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <span className={styles.sugLabel}>Try:</span>
+            <span className={styles.sugLabel}>The damned have watched:</span>
             {SUGGESTIONS.map(s => (
               <motion.button
                 key={s}
@@ -146,8 +146,8 @@ export default function SearchClient() {
         {!loading && !error && q && animes.length === 0 && (
           <motion.div key="empty" className={styles.emptyState} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <p className={styles.emptyIcon}>🔍</p>
-            <p className={styles.emptyTitle}>Nothing found in the abyss</p>
-            <p className={styles.emptyText}>Try a different title or check your spelling.</p>
+            <p className={styles.emptyTitle}>No souls match this incantation</p>
+            <p className={styles.emptyText}>Speak the name differently. The abyss is listening.</p>
           </motion.div>
         )}
 

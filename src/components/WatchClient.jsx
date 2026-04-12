@@ -293,39 +293,34 @@ export default function WatchClient({ animeId, epSlug }) {
 
     if (pref.subType) setCrySubType(pref.subType);
 
-    let settled = false;
-
-    const trySource = async (sourceId) => {
-      try {
-        const data = await api.crysoline.mapOne(anilistId, sourceId);
-        if (!data?.mappedId || settled) return null;
-        const eps = await api.crysoline.episodes(sourceId, data.mappedId, anilistId);
-        if (eps?.episodes?.length > 0 && !settled) {
-          return { sourceId, mappedId: data.mappedId, episodes: eps.episodes };
-        }
-      } catch {}
-      return null;
-    };
-
+    // Sequential source probe — avoids hammering Crysoline with parallel requests
+    // which causes 429 rate-limit blocks. We try sources one at a time,
+    // stopping as soon as the first working one is found.
     (async () => {
-      const promises = allSrcIds.map(id => trySource(id));
-      const results  = await Promise.allSettled(promises);
-
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value && !settled) {
-          settled = true;
-          const { sourceId, mappedId, episodes } = r.value;
-          setSourceMap(prev => ({ ...prev, [sourceId]: mappedId }));
+      for (const sourceId of allSrcIds) {
+        try {
+          console.log(`[watch] probing source: ${sourceId}`);
+          const data = await api.crysoline.mapOne(anilistId, sourceId);
+          if (!data?.mappedId) {
+            console.log(`[watch] ${sourceId}: no mapping found`);
+            continue;
+          }
+          const eps = await api.crysoline.episodes(sourceId, data.mappedId, anilistId);
+          if (!eps?.episodes?.length) {
+            console.log(`[watch] ${sourceId}: no episodes`);
+            continue;
+          }
+          // Found a working source — activate immediately
+          console.log(`[watch] ${sourceId}: found ${eps.episodes.length} episodes — activating`);
+          setSourceMap(prev => ({ ...prev, [sourceId]: data.mappedId }));
           setActiveSrcId(sourceId);
-          setCryEps(episodes);
-          return;
+          setCryEps(eps.episodes);
+          return; // stop probing — first working source wins
+        } catch (e) {
+          console.log(`[watch] ${sourceId}: error — ${e.message}`);
         }
       }
-
-      if (!settled) {
-        console.log("[watch] no sources settled — embedded disabled");
-        // setSourceMode("embedded"); // embedded disabled
-      }
+      console.log("[watch] all sources exhausted");
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentEp?.epSlug, anilistId]);
@@ -441,16 +436,40 @@ export default function WatchClient({ animeId, epSlug }) {
           ──────────────────────────────────────────────────────────────────── */}
           {currentEp && sourceMode === "crysoline" && (
             <>
-              {(cryEpsLoad || cryStreamLoad) && !crySelSrc && (
-                <div className={styles.playerState}>
-                  <div className="spinner" />
-                  <p>{cryEpsLoad ? "Loading episode list…" : "Fetching stream…"}</p>
-                </div>
-              )}
+              {(cryEpsLoad || cryStreamLoad) && !crySelSrc && (() => {
+                const srcName = CRYSOLINE_SOURCES.find(s => s.id === activeSrcId)?.name || activeSrcId || "the Abyss";
+                return (
+                  <div className={styles.playerState}>
+                    <div className={styles.summonSpinner}>
+                      <div className={styles.summonRing} />
+                      <svg width="28" height="28" viewBox="0 0 64 64" fill="none" className={styles.summonSkull}>
+                        <path d="M18 20 C15 11 13 5 16 2 C19 5 20 11 20 20Z" fill="#c0394d" opacity=".9"/>
+                        <path d="M46 20 C49 11 51 5 48 2 C45 5 44 11 44 20Z" fill="#c0394d" opacity=".9"/>
+                        <ellipse cx="32" cy="31" rx="18" ry="16" fill="#c0394d" opacity=".85"/>
+                        <ellipse cx="23" cy="31" rx="6" ry="5.5" fill="#07060b" opacity=".92"/>
+                        <ellipse cx="23" cy="31" rx="4" ry="3.8" fill="rgba(255,60,85,0.9)"/>
+                        <ellipse cx="23" cy="31" rx="1.6" ry="3.2" fill="#07060b"/>
+                        <ellipse cx="41" cy="31" rx="6" ry="5.5" fill="#07060b" opacity=".92"/>
+                        <ellipse cx="41" cy="31" rx="4" ry="3.8" fill="rgba(255,60,85,0.9)"/>
+                        <ellipse cx="41" cy="31" rx="1.6" ry="3.2" fill="#07060b"/>
+                        <path d="M29 39 L32 34 L35 39 L34 43 L30 43Z" fill="#07060b" opacity=".9"/>
+                        <path d="M22 49 Q32 57 42 49 L41 58 Q32 63 23 58Z" fill="#8b1a28"/>
+                      </svg>
+                    </div>
+                    <p className={styles.summonTitle}>
+                      {cryEpsLoad ? "Binding to the source…" : `Summoning souls from ${srcName}…`}
+                    </p>
+                    <p className={styles.summonSub}>
+                      {cryEpsLoad ? "Cataloguing episodes from the underworld" : `Breaching ${srcName} — stand by`}
+                    </p>
+                  </div>
+                );
+              })()}
               {!activeSrcId && !cryStreamLoad && !cryEpsLoad && (
                 <div className={styles.playerState}>
-                  <span className={styles.stateIcon}>🎬</span>
-                  <p>Loading default source…</p>
+                  <span className={styles.stateIcon}>☠</span>
+                  <p className={styles.summonTitle}>Awakening the portal…</p>
+                  <p className={styles.summonSub}>Selecting the strongest conduit</p>
                 </div>
               )}
               {activeSrcId && !cryEpsLoad && !cryStreamLoad && cryStreamErr && !crySelSrc && (
@@ -606,7 +625,7 @@ export default function WatchClient({ animeId, epSlug }) {
                         fetchStream(t, "");
                         setCryServer("");
                       }}>
-                      {t === "sub" ? "Subbed" : "Dubbed"}
+                      {t === "sub" ? "Subbed (Original)" : "Dubbed (Translated)"}
                     </button>
                   ))}
                 </div>
@@ -698,7 +717,7 @@ export default function WatchClient({ animeId, epSlug }) {
                     <button key={l}
                       className={`${styles.optBtn} ${embedLang === l ? styles.optBtnActive : ""}`}
                       onClick={() => { setEmbedLang(l); setEmbedReload(r => r + 1); }}>
-                      {l === "sub" ? "Subbed" : "Dubbed"}
+                      {l === "sub" ? "Subbed (Original)" : "Dubbed (Translated)"}
                     </button>
                   ))}
                 </div>

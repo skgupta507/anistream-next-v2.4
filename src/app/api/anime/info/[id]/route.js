@@ -1,7 +1,6 @@
 export const maxDuration = 30;
-// Remove force-dynamic — anime info changes rarely. Let Vercel CDN cache it.
-export const dynamic = "force-static";
-export const revalidate = 3600; // Regenerate at most every hour
+// Cache at Vercel CDN: revalidate every hour
+export const revalidate = 3600;
 
 import { NextResponse } from "next/server";
 import { getAnimeInfo } from "@/lib/scraper";

@@ -57,7 +57,7 @@ export default function HomeClient({ initialData }) {
         animate={{ opacity: 1, y: 0 }}
       >
         <div className={styles.errSigil}>⚔</div>
-        <h2 className={styles.errTitle}>The Abyss is Silent</h2>
+        <h2 className={styles.errTitle}>The Abyss Speaks No More</h2>
         <p className={styles.errMsg}>{error}</p>
         <button className={styles.retryBtn} onClick={() => window.location.reload()}>
           Try Again
@@ -89,7 +89,7 @@ export default function HomeClient({ initialData }) {
           <div className={styles.sectionHeader}>
             <div className={styles.titleWrap}>
               <span className={styles.titleAccent} />
-              <h2 className="section-title">Continue Watching</h2>
+              <h2 className="section-title">Continue Your Descent</h2>
             </div>
             <Link href="/profile" className={styles.viewAll}>
               View All
@@ -137,19 +137,19 @@ export default function HomeClient({ initialData }) {
         {/* Left column — primary sections */}
         <div className={styles.primaryCol}>
           <Section
-            title="Trending Now"
+            title="Souls in Demand"
             animes={trending}
             viewAllHref="/browse?category=top-airing"
             loading={loading}
           />
           <Section
-            title="Latest Episodes"
+            title="Freshly Summoned"
             animes={latest}
             viewAllHref="/browse?category=recently-updated"
             loading={loading}
           />
           <Section
-            title="Most Beloved"
+            title="Sealed by the Masses"
             animes={favorites}
             viewAllHref="/browse?category=most-favorite"
             loading={loading}
@@ -163,7 +163,7 @@ export default function HomeClient({ initialData }) {
             <div className={styles.top10Card}>
               <div className={styles.top10Header}>
                 <span className={styles.titleAccent} />
-                <h3 className="section-title">Top 10 Today</h3>
+                <h3 className="section-title">Top 10 Condemned</h3>
               </div>
               <div className={styles.top10List}>
                 {loading
@@ -212,7 +212,7 @@ export default function HomeClient({ initialData }) {
             <div className={styles.airingCard}>
               <div className={styles.airingHeader}>
                 <span className={styles.titleAccent} />
-                <h3 className="section-title">Top Airing</h3>
+                <h3 className="section-title">Airing from the Inferno</h3>
                 <Link href="/browse?category=top-airing" className={styles.airingViewAll}>All →</Link>
               </div>
               <div className={styles.airingGrid}>
@@ -223,6 +223,38 @@ export default function HomeClient({ initialData }) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Demonic footer CTA ── */}
+      <div className={styles.abyssCta}>
+        <motion.div
+          className={styles.abyssCtaInner}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <p className={styles.abyssEyebrow}>∞ The collection is bottomless ∞</p>
+          <h2 className={styles.abyssTitle}>Thousands of souls yet unclaimed</h2>
+          <p className={styles.abyssDesc}>
+            Every series is a deal with the devil. Browse the full catalogue and seal your fate.
+          </p>
+          <div className={styles.abyssBtns}>
+            <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.97 }}>
+              <Link href="/browse?category=top-airing" className={styles.abyssBtn}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Enter the Abyss
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+              <Link href="/search" className={styles.abyssSecondaryBtn}>
+                Search the Underworld →
+              </Link>
+            </motion.div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

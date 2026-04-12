@@ -98,7 +98,7 @@ function MediaListTab({ status }) {
       </div>
       {hasMore && (
         <button className={styles.loadMore} onClick={() => setPage(p => p + 1)} disabled={loading}>
-          {loading ? "Loading…" : "Load more"}
+          {loading ? "Loading…" : "Summon more"}
         </button>
       )}
     </>
@@ -111,8 +111,8 @@ const TABS = [
   { key:"COMPLETED",label:"Completed"    },
   { key:"DROPPED",  label:"Dropped"      },
   { key:"PAUSED",   label:"On Hold"      },
-  { key:"local",    label:"Local History"},
-  { key:"stats",    label:"Statistics"   },
+  { key:"local",    label:"Unsaved Conquests"},
+  { key:"stats",    label:"Your Dossier"   },
 ];
 
 export default function ProfileClient() {
@@ -191,10 +191,10 @@ export default function ProfileClient() {
 
       {aniStats && (
         <div className={`container ${styles.quickStats}`}>
-          <StatCard label="Anime Watched"  value={aniStats.count || 0}/>
-          <StatCard label="Episodes"       value={(aniStats.episodesWatched||0).toLocaleString()}/>
-          <StatCard label="Time Watched"   value={fmtMins(aniStats.minutesWatched||0)} accent/>
-          <StatCard label="Mean Score"     value={aniStats.meanScore ? `${aniStats.meanScore}%` : "N/A"}/>
+          <StatCard label="Souls Consumed"  value={aniStats.count || 0}/>
+          <StatCard label="Sacrifices Made"       value={(aniStats.episodesWatched||0).toLocaleString()}/>
+          <StatCard label="Hours Surrendered"   value={fmtMins(aniStats.minutesWatched||0)} accent/>
+          <StatCard label="Avg. Judgment"     value={aniStats.meanScore ? `${aniStats.meanScore}%` : "N/A"}/>
         </div>
       )}
 

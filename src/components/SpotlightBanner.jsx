@@ -58,7 +58,7 @@ export default function SpotlightBanner({ spotlights = [], loading = false }) {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-        >Descend into</motion.span>
+        >Summoned from the Abyss</motion.span>
         <motion.h1
           className={styles.emptyTitle}
           initial={{ opacity: 0, y: 20 }}
@@ -70,13 +70,13 @@ export default function SpotlightBanner({ spotlights = [], loading = false }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.35 }}
-        >Stream anime in HD — sub &amp; dub, no soul required</motion.p>
+        >Thousands of souls await. Your descent begins now.</motion.p>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Link href="/browse?category=top-airing" className="btn-primary">Begin the Journey</Link>
+          <Link href="/browse?category=top-airing" className="btn-primary">Enter the Abyss</Link>
         </motion.div>
       </div>
     </div>
@@ -196,11 +196,11 @@ export default function SpotlightBanner({ spotlights = [], loading = false }) {
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
                 <Link href={`/anime/${item.id}`} className={styles.watchBtn}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-                  Watch Now
+                  Claim This Soul
                 </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
-                <Link href={`/anime/${item.id}`} className={styles.detailsBtn}>Details</Link>
+                <Link href={`/anime/${item.id}`} className={styles.detailsBtn}>Inspect the Condemned</Link>
               </motion.div>
             </div>
           </motion.div>

@@ -1,9 +1,5 @@
 export const maxDuration = 30;
-// Remove force-dynamic so Vercel CDN can cache this response at the edge.
-// s-maxage=300 means Vercel serves from CDN for 5 min (no origin hit).
-// stale-while-revalidate=600 means CDN continues serving stale while refreshing.
-export const dynamic = "force-static";
-export const revalidate = 300; // Next.js ISR — regenerate at most every 5 min
+export const revalidate = 300; // ISR: regenerate every 5 min
 
 import { NextResponse } from "next/server";
 import { getHome } from "@/lib/scraper";

@@ -7,31 +7,38 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import styles from "./Navbar.module.css";
 
-/* ── AnimeDex demon skull logo ────────────────────────────── */
+/* ── AnimeDex demon skull — properly proportioned ─────────── */
 function AnimeDexIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
-      {/* Horns */}
-      <path d="M15 5 C12 14 17 23 21 27 C17 21 12 13 15 5Z" fill="currentColor" opacity="0.9"/>
-      <path d="M49 5 C52 14 47 23 43 27 C47 21 52 13 49 5Z" fill="currentColor" opacity="0.9"/>
-      {/* Cranium */}
-      <ellipse cx="32" cy="27" rx="17" ry="15" fill="currentColor" opacity="0.95"/>
+    <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
+      {/* Left horn: base y=20, tip y=2 */}
+      <path d="M18 20 C15 11 13 5 16 2 C19 5 20 11 20 20Z" fill="currentColor" opacity="0.92"/>
+      {/* Right horn */}
+      <path d="M46 20 C49 11 51 5 48 2 C45 5 44 11 44 20Z" fill="currentColor" opacity="0.92"/>
+      {/* Cranium: centred lower so brow/eyes are fully visible */}
+      <ellipse cx="32" cy="31" rx="18" ry="16" fill="currentColor" opacity="0.96"/>
+      {/* Cheekbones / sides */}
+      <path d="M15 35 C13 42 15 50 19 54 L22 53 C18 49 16 43 17 37Z" fill="currentColor" opacity="0.72"/>
+      <path d="M49 35 C51 42 49 50 45 54 L42 53 C46 49 48 43 47 37Z" fill="currentColor" opacity="0.72"/>
       {/* Jaw */}
-      <path d="M23 44 Q32 50 41 44 L40 53 Q32 57 24 53Z" fill="currentColor" opacity="0.7"/>
-      {/* Teeth */}
-      <rect x="25" y="50" width="2.5" height="4.5" rx="0.8" fill="rgba(7,6,11,0.9)"/>
-      <rect x="29" y="50" width="2.5" height="5.5" rx="0.8" fill="rgba(7,6,11,0.9)"/>
-      <rect x="33.5" y="50" width="2.5" height="4.5" rx="0.8" fill="rgba(7,6,11,0.9)"/>
-      {/* Nose */}
-      <path d="M29 34 L32 30 L35 34 L34 38 L30 38Z" fill="rgba(7,6,11,0.85)"/>
-      {/* Left eye socket */}
-      <ellipse cx="23" cy="26" rx="5.5" ry="5" fill="rgba(7,6,11,0.9)"/>
-      <ellipse cx="23" cy="26" rx="3" ry="2.8" fill="rgba(255,64,96,0.85)"/>
-      <ellipse cx="23" cy="26" rx="1.2" ry="2.4" fill="rgba(7,6,11,1)"/>
+      <path d="M22 49 Q32 57 42 49 L41 58 Q32 63 23 58Z" fill="currentColor" opacity="0.80"/>
+      {/* Teeth — inside jaw, so bg-colored */}
+      <rect x="24.5" y="54" width="3"   height="5"   rx="1" fill="rgba(7,6,11,1)"/>
+      <rect x="28.5" y="53" width="3.5" height="6.5" rx="1" fill="rgba(7,6,11,1)"/>
+      <rect x="33"   y="53" width="3.5" height="6.5" rx="1" fill="rgba(7,6,11,1)"/>
+      <rect x="37.5" y="54" width="3"   height="5"   rx="1" fill="rgba(7,6,11,1)"/>
+      {/* Nasal cavity */}
+      <path d="M29 39 L32 34 L35 39 L34 43 L30 43Z" fill="rgba(7,6,11,0.9)"/>
+      {/* Left eye socket — y=31 lines up with cranium centre */}
+      <ellipse cx="23" cy="31" rx="6"   ry="5.5" fill="rgba(7,6,11,0.93)"/>
+      <ellipse cx="23" cy="31" rx="4"   ry="3.8"  fill="rgba(255,60,85,0.92)"/>
+      <ellipse cx="23" cy="31" rx="1.6" ry="3.2"  fill="rgba(7,6,11,1)"/>
+      <ellipse cx="21.5" cy="29" rx="1" ry="1.5" fill="rgba(255,255,255,0.42)" transform="rotate(-15,21.5,29)"/>
       {/* Right eye socket */}
-      <ellipse cx="41" cy="26" rx="5.5" ry="5" fill="rgba(7,6,11,0.9)"/>
-      <ellipse cx="41" cy="26" rx="3" ry="2.8" fill="rgba(255,64,96,0.85)"/>
-      <ellipse cx="41" cy="26" rx="1.2" ry="2.4" fill="rgba(7,6,11,1)"/>
+      <ellipse cx="41" cy="31" rx="6"   ry="5.5" fill="rgba(7,6,11,0.93)"/>
+      <ellipse cx="41" cy="31" rx="4"   ry="3.8"  fill="rgba(255,60,85,0.92)"/>
+      <ellipse cx="41" cy="31" rx="1.6" ry="3.2"  fill="rgba(7,6,11,1)"/>
+      <ellipse cx="39.5" cy="29" rx="1" ry="1.5" fill="rgba(255,255,255,0.42)" transform="rotate(-15,39.5,29)"/>
     </svg>
   );
 }
@@ -151,7 +158,7 @@ export default function Navbar() {
                 onChange={handleInput}
                 onFocus={() => suggestions.length && setShowSug(true)}
                 onBlur={() => setTimeout(() => setShowSug(false), 180)}
-                placeholder="Search the abyss…"
+                placeholder="Name your prey…"
                 className={styles.input}
                 aria-label="Search"
               />
@@ -228,7 +235,7 @@ export default function Navbar() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the abyss…" />
+              <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Name your prey…" />
               <button type="submit">Go</button>
             </form>
             <div className={styles.mobileLinks}>

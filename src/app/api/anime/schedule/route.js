@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-static";
-export const revalidate = 3600; // Schedule changes at most hourly
+export const revalidate = 3600; // ISR: regenerate every hour
 
 // Helper: get Unix timestamps for start and end of current week (Mon–Sun)
 function getWeekRange() {

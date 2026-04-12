@@ -116,15 +116,15 @@ async function cryGet(path, params = {}, timeoutMs = 20000, retries = 1, signal4
  *   2. Add its id to FALLBACK_SOURCE_IDS if you want it in the auto-load race.
  */
 export const CRYSOLINE_SOURCES = [
-  // ── ACTIVE SOURCES ────────────────────────────────────────────────────────
-  { id: "animegg",       name: "AnimeGG",       site: "animegg.org",   langs: ["en","ja"], hasServers: false, isDefault: true },
-  { id: "animepahe",     name: "AnimePahe",     site: "animepahe.si",  langs: ["en","ja"], hasServers: false },
-  { id: "anizone",       name: "Anizone",        site: "anizone.to",    langs: ["en","ja"], hasServers: false },
+  // ── ACTIVE SOURCES — only AnimeGG + Anizone (stable & working) ───────────
+  { id: "animegg",  name: "AnimeGG", site: "animegg.org", langs: ["en","ja"], hasServers: false, isDefault: true },
+  { id: "anizone",  name: "Anizone", site: "anizone.to",  langs: ["en","ja"], hasServers: false },
 
-  // ── INACTIVE SOURCES (commented out — re-enable as needed) ───────────────
-  { id: "animekai",      name: "AnimeKai",      site: "anikai.to",              langs: ["en","ja"],        hasServers: false },
-  { id: "kickassanime",  name: "KickAssAnime",  site: "kaa.it",                langs: ["en","ja"],        hasServers: false },
-  { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe",      langs: ["en","ja"],        hasServers: false },
+  // ── INACTIVE — commented out until verified working ───────────────────────
+  // { id: "animepahe",     name: "AnimePahe",     site: "animepahe.si",         langs: ["en","ja"], hasServers: false },
+  // { id: "animekai",      name: "AnimeKai",      site: "anikai.to",            langs: ["en","ja"], hasServers: false },
+  // { id: "kickassanime",  name: "KickAssAnime",  site: "kaa.it",               langs: ["en","ja"], hasServers: false },
+  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe",    langs: ["en","ja"], hasServers: false },
   // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",         langs: ["en","ja"],        hasServers: false },
   // { id: "animeyy",       name: "AnimeYY",       site: "animeyy.com",            langs: ["en","ja"],        hasServers: false },
   // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",            langs: ["en","ja"],        hasServers: false },
@@ -157,14 +157,13 @@ export const ALL_SOURCE_IDS = CRYSOLINE_SOURCES.map(s => s.id);
 
 // Fallback order when the default (AnimeGG) source fails.
 // Only active sources are listed here — inactive ones are commented out.
+// Fallback order when AnimeGG fails.
+// Only active sources listed here.
 export const FALLBACK_SOURCE_IDS = [
-  "animepahe",
-  "animekai",
-  "kickassanime",
-  "animeparadise",
   "anizone",
-  // "animeheaven",   // re-enable when source is re-activated
-  // "animenexus",    // re-enable when source is re-activated
+  // "animepahe",     // re-enable when CDN proxy is confirmed working
+  // "kickassanime",  // broken upstream — 404 from Crysoline
+  // "animeparadise", // broken upstream — undefined error from Crysoline
 ];
 
 // ── Title helpers ──────────────────────────────────────────────────────────────

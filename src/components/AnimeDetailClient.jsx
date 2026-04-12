@@ -267,7 +267,7 @@ export default function AnimeDetailClient({ animeId, initialData }) {
               </div>
               {eps.length === 0 ? (
                 <p className={styles.emptyMsg}>
-                  {loading ? "Loading episodes…" : "No episodes available yet."}
+                  {loading ? "Loading episodes…" : "This series has not yet been summoned."}
                 </p>
               ) : (
                 <>
@@ -402,13 +402,13 @@ export default function AnimeDetailClient({ animeId, initialData }) {
 
         {/* ── FULL-WIDTH: Related, Recommended, You May Like ── */}
         <div className={styles.bottomSections}>
-          <AnimeSection title="Related Anime"     items={related} columns={4} />
-          <AnimeSection title="Recommended"       items={recs.slice(0, 8)}    columns={4} />
+          <AnimeSection title="Kindred Spirits"     items={related} columns={4} />
+          <AnimeSection title="The Abyss Recommends"       items={recs.slice(0, 8)}    columns={4} />
 
           {/* You May Like: mix of recs tail + related */}
           {(recs.length > 8 || related.length > 0) && (
             <AnimeSection
-              title="You May Also Like"
+              title="Other Souls in Your Collection"
               items={[...recs.slice(8, 16), ...related].slice(0, 8)}
               columns={4}
             />

@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   cleanDistDir: true,
+  reactStrictMode: true,
+  // Next 15: server actions are stable (no longer experimental)
+  // experimental.serverActions removed — use built-in support
+  // Turbopack is the default dev bundler in Next 15
+  // Use: next dev --turbo  (or set TURBOPACK=1)
+
 
   images: {
     remotePatterns: [

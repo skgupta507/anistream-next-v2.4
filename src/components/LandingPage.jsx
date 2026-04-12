@@ -134,11 +134,11 @@ function SkullHero() {
 
 /* ── Dialogue lines — typewriter ─────────────────────────────────── */
 const LINES = [
-  { text: "So… a mortal dares to seek forbidden pleasures.", delay: 0 },
-  { text: "Countless souls have wandered into this abyss before you.", delay: 2200 },
-  { text: "None ever found their way back out.", delay: 4600 },
-  { text: "And yet — here you stand.", delay: 6800 },
-  { text: "How wonderfully reckless of you.", delay: 8600 },
+  { text: "You shouldn’t be here. And yet… here you are.", delay: 0 },
+  { text: "Thousands of anime await you in the dark. Some have already claimed your kind.", delay: 2400 },
+  { text: "They sat down for one episode. They never left.", delay: 5200 },
+  { text: "I can feel your resolve weakening already.", delay: 7600 },
+  { text: "Good. The abyss is patient. It has always been patient.", delay: 9400 },
 ];
 
 function TypewriterLine({ text, delay, onDone }) {
@@ -186,7 +186,7 @@ export default function LandingPage() {
   // After last line completes, show CTA
   const totalLines = LINES.length;
   // Last line delay + ~3s for it to type out
-  const lastLineEnd = LINES[LINES.length - 1].delay + LINES[LINES.length - 1].text.length * 36 + 800;
+  const lastLineEnd = LINES[LINES.length - 1].delay + LINES[LINES.length - 1].text.length * 36 + 600;
   useEffect(() => {
     const t = setTimeout(() => setDone(true), lastLineEnd);
     return () => clearTimeout(t);
