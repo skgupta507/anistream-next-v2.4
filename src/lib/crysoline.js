@@ -118,33 +118,27 @@ async function cryGet(path, params = {}, timeoutMs = 20000, retries = 1, signal4
  *   2. Add its id to FALLBACK_SOURCE_IDS if you want it in the auto-load race.
  */
 export const CRYSOLINE_SOURCES = [
-  // ── ACTIVE SOURCES — only AnimeGG + Anizone (stable & working) ───────────
-  { id: "animegg",  name: "AnimeGG", site: "animegg.org", langs: ["en","ja"], hasServers: false, isDefault: true },
-  { id: "anizone",  name: "Anizone", site: "anizone.to",  langs: ["en","ja"], hasServers: false },
+  // ── ACTIVE SOURCES ────────────────────────────────────────────────────────
+  { id: "animegg",   name: "AnimeGG",   site: "animegg.org",    langs: ["en","ja"], hasServers: false, isDefault: true },
+  { id: "anizone",   name: "Anizone",   site: "anizone.to",     langs: ["en","ja"], hasServers: false },
+  { id: "animepahe", name: "AnimePahe", site: "animepahe.pw",   langs: ["en","ja"], hasServers: false }, // API v1: animepahe.pw
+  { id: "anidap",    name: "Anidap",    site: "anidap.se",      langs: ["en","ja"], hasServers: true  }, // API v1: has /servers
 
-  // ── INACTIVE — commented out until verified working ───────────────────────
-  // { id: "animepahe",     name: "AnimePahe",     site: "animepahe.si",         langs: ["en","ja"], hasServers: false },
-  // { id: "animekai",      name: "AnimeKai",      site: "anikai.to",            langs: ["en","ja"], hasServers: false },
-  // { id: "kickassanime",  name: "KickAssAnime",  site: "kaa.it",               langs: ["en","ja"], hasServers: false },
-  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe",    langs: ["en","ja"], hasServers: false },
-  // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",         langs: ["en","ja"],        hasServers: false },
-  // { id: "animeyy",       name: "AnimeYY",       site: "animeyy.com",            langs: ["en","ja"],        hasServers: false },
-  // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",            langs: ["en","ja"],        hasServers: false },
-  // { id: "animeonsen",    name: "AnimeOnsen",    site: "animeonsen.xyz",         langs: ["en","ja"],        hasServers: false },
-  // { id: "uniquestream",  name: "UniqueStream",  site: "anime.uniquestream.net", langs: ["en","ja"],        hasServers: false },
-  // { id: "animerevival",  name: "AnimeRevival",  site: "animerevival.xyz",       langs: ["en","ja","tl"],   hasServers: false },
+  // ── INACTIVE — re-enable as needed ───────────────────────────────────────
+  // { id: "animekai",      name: "AnimeKai",      site: "anikai.to",             langs: ["en","ja"], hasServers: false },
+  // { id: "kickassanime",  name: "KickAssAnime",  site: "kaa.lt",                langs: ["en","ja"], hasServers: false }, // API v1: kaa.lt
+  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe",     langs: ["en","ja"], hasServers: false },
+  // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",        langs: ["en","ja"], hasServers: false },
+  // { id: "animeyy",       name: "AnimeYY",       site: "animeyy.com",           langs: ["en","ja"], hasServers: false },
+  // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",           langs: ["en","ja"], hasServers: false },
+  // { id: "animeonsen",    name: "AnimeOnsen",    site: "animeonsen.xyz",        langs: ["en","ja"], hasServers: false },
+  // { id: "uniquestream",  name: "UniqueStream",  site: "anime.uniquestream.net",langs: ["en","ja"], hasServers: false },
+  // { id: "animerevival",  name: "AnimeRevival",  site: "animerevival.xyz",      langs: ["en","ja","tl"], hasServers: false },
   // ── Sources with server selection ────────────────────────────────────────
-  // { id: "anicore",       name: "Anicore",       site: "anikage.cc",             langs: ["en","ja","id"],   hasServers: true  },
-  // { id: "anidap",        name: "Anidap",        site: "anidap.se",              langs: ["en","ja","id"],   hasServers: true  },
-  // { id: "animex",        name: "Animex",        site: "animex.one",             langs: ["en","ja","id"],   hasServers: true  },
-  // { id: "animeav1",      name: "AnimeAV1",      site: "animeav1.com",           langs: ["es"],             hasServers: true  },
-  // { id: "animelib",      name: "AnimeLib",      site: "v3.animelib.org",        langs: ["ru","ja"],        hasServers: true  },
-  // { id: "animemeow",     name: "AnimeMeow",     site: "animemeow.xyz",          langs: ["es","ja"],        hasServers: true  },
-  // { id: "animenix",      name: "AnimeNix",      site: "animenix.com",           langs: ["es","ja"],        hasServers: true  },
-  // ── Other language sources ────────────────────────────────────────────────
-  // { id: "anime3rb",      name: "Anime3rb",      site: "anime3rb.com",           langs: ["ar","ja"],        hasServers: false },
-  // { id: "lunaranime",    name: "LunarAnime",    site: "lunaranime.ru",          langs: ["ru","en","ja"],   hasServers: false },
-  // { id: "kuudere",       name: "Kuudere",       site: "kuudere.ru",             langs: ["en","ja"],        hasServers: false },
+  // { id: "anicore",  name: "Anicore",  site: "anikage.cc",     langs: ["en","ja","id"], hasServers: true },
+  // { id: "animex",   name: "Animex",   site: "animex.one",     langs: ["en","ja","id"], hasServers: true },
+  // { id: "animeav1", name: "AnimeAV1", site: "animeav1.com",   langs: ["es"],           hasServers: true },
+  // { id: "animelib", name: "AnimeLib", site: "v3.animelib.org",langs: ["ru","ja"],      hasServers: true },
 ];
 
 export const DEFAULT_SOURCE_ID = "animegg";
@@ -162,10 +156,9 @@ export const ALL_SOURCE_IDS = CRYSOLINE_SOURCES.map(s => s.id);
 // Fallback order when AnimeGG fails.
 // Only active sources listed here.
 export const FALLBACK_SOURCE_IDS = [
-  "anizone",
-  // "animepahe",     // re-enable when CDN proxy is confirmed working
-  // "kickassanime",  // broken upstream — 404 from Crysoline
-  // "animeparadise", // broken upstream — undefined error from Crysoline
+  "anizone",    // fallback 1
+  "animepahe",  // fallback 2
+  "anidap",     // fallback 3 — has /servers
 ];
 
 // ── Title helpers ──────────────────────────────────────────────────────────────
@@ -356,13 +349,15 @@ export async function getSourcesFromSource(sourceId, mappedId, episodeId, subTyp
   if (subType) params.subType = subType;
   if (server)  params.server  = server;
 
-  // Guard: animeav1 /sources also fails with bare slugs — skip to avoid the
-  // "Failed to construct 'Request': Invalid URL" crash in the Crysoline API.
-  const looksLikeUrl = mappedId.startsWith("http://") || mappedId.startsWith("https://");
+  // Guard: sources that have broken /sources endpoints on Crysoline's API.
+  // Anizone /sources returns 500 "Anizone Sources failed 404" consistently.
+  // animeav1 /sources fails with bare slugs — crash in the Crysoline API.
+  // Note: anizone /sources confirmed working by user — no broken source guard needed
+  const looksLikeUrl       = mappedId.startsWith("http://") || mappedId.startsWith("https://");
   const looksLikeNumericId = /^\d+$/.test(mappedId);
-  const looksLikeBareSlug = !looksLikeUrl && !looksLikeNumericId && /^[a-z0-9-]+$/.test(mappedId);
+  const looksLikeBareSlug  = !looksLikeUrl && !looksLikeNumericId && /^[a-z0-9-]+$/.test(mappedId);
   if (sourceId === "animeav1" && looksLikeBareSlug) {
-    console.log(`[crysoline] skipping /sources for ${sourceId} — mappedId "${mappedId}" is a bare slug`);
+    console.log(`[crysoline] skipping /sources for ${sourceId} — bare slug mappedId`);
     return { sources: [], subtitles: [], headers: {} };
   }
 

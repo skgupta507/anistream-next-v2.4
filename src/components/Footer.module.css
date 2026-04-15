@@ -1,178 +1,61 @@
+/* ═══════════════════════════════════════════════════════════
+   FOOTER — Streamlined: brand left, API status right
+   ═══════════════════════════════════════════════════════════ */
+
 .footer {
-  position: relative;
-  background: linear-gradient(180deg, var(--bg-card) 0%, rgba(4,3,8,1) 100%);
+  background: var(--bg-card);
   border-top: 1px solid var(--border);
-  margin-top: 80px;
-  overflow: hidden;
+  margin-top: auto;
 }
-
 .glowLine {
-  position: absolute;
-  top: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 55%;
   height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--accent) 30%,
-    var(--purple) 50%,
-    var(--accent) 70%,
-    transparent 100%);
-  box-shadow: 0 0 28px 4px rgba(192,57,77,0.25);
-  opacity: 0.65;
-  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 40%, var(--purple) 60%, transparent 100%);
+  opacity: 0.45;
 }
-
 .inner {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr;
-  gap: 60px;
-  padding-top: 56px;
-  padding-bottom: 48px;
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 40px;
+  padding: 40px 24px; flex-wrap: wrap;
 }
-
-/* ── Brand ── */
-.brand { display: flex; flex-direction: column; gap: 16px; }
-
+.brand { display: flex; flex-direction: column; gap: 14px; }
 .logoWrap {
-  display: inline-flex; align-items: center; gap: 12px;
-  text-decoration: none;
+  display: flex; align-items: center; gap: 12px;
+  color: var(--text-1); transition: opacity var(--t-fast);
 }
+.logoWrap:hover { opacity: 0.8; }
+.logoIcon { color: var(--accent); display: flex; align-items: center; filter: drop-shadow(0 0 8px var(--accent-glow)); }
+.logoText { display: flex; align-items: baseline; gap: 1px; }
+.logoMain { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: 0.04em; color: var(--text-1); }
+.logoDex  { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: 0.04em; color: var(--accent); }
+.brandSlogan { font-family: var(--font-serif); font-style: italic; font-size: 13.5px; color: var(--text-3); line-height: 1.65; max-width: 280px; }
 
-.logoIcon {
-  width: 42px; height: 42px;
-  background: linear-gradient(135deg, var(--accent-deep), var(--accent));
-  border-radius: var(--r-lg);
-  display: flex; align-items: center; justify-content: center;
-  color: #fff;
-  box-shadow: 0 4px 20px var(--accent-glow);
-  flex-shrink: 0;
-}
-
-.logoText { display: flex; flex-direction: row; align-items: baseline; gap: 0; }
-.logoMain {
-  font-family: var(--font-display);
-  font-size: 16px; font-weight: 700;
-  letter-spacing: 0.10em;
-  color: var(--text-1);
-  text-transform: uppercase;
-}
-.logoDex {
-  font-family: var(--font-display);
-  font-size: 16px; font-weight: 700;
-  letter-spacing: 0.10em;
-  color: var(--accent);
-  text-transform: uppercase;
-}
-
-.brandDesc {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 14px;
-  color: var(--text-2);
-  line-height: 1.65;
-  max-width: 260px;
-}
-
-/* ── API Status ── */
-.apiStatus {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  max-width: 240px;
-}
-
-.apiStatusLabel {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  font-family: var(--font-body);
-}
-
+.apiStatus { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.apiLabel  { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-4); }
 .statusRow { display: flex; align-items: center; gap: 8px; }
-.statusName { font-size: 13px; font-weight: 500; color: var(--text-1); flex: 1; }
+.statusName { font-size: 13px; font-weight: 500; color: var(--text-2); }
 
-.statusBadge {
-  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
-  padding: 2px 8px; border-radius: 99px;
-}
-.badgeUp       { background: rgba(39,174,96,0.14); color: #5dd47a; border: 1px solid rgba(39,174,96,0.22); }
-.badgeDown     { background: rgba(192,57,77,0.14); color: #e06070; border: 1px solid rgba(192,57,77,0.24); }
-.badgeChecking { background: rgba(255,255,255,0.06); color: var(--text-3); border: 1px solid var(--border-md); }
+.dotChecking { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text-4); animation: pulse 1.4s ease-in-out infinite; }
+.dotUp   { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #3ecf8e; box-shadow: 0 0 6px rgba(62,207,142,0.5); }
+.dotDown { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
-.statusNote { font-size: 10px; color: var(--text-3); }
+.statusBadge { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 99px; }
+.badgeChecking { background: rgba(255,255,255,0.05); color: var(--text-3); border: 1px solid var(--border); }
+.badgeUp   { background: rgba(62,207,142,0.10); color: #3ecf8e; border: 1px solid rgba(62,207,142,0.25); }
+.badgeDown { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-soft); }
+.statusNote { font-size: 10px; color: var(--text-4); letter-spacing: 0.03em; }
 
-.dotChecking, .dotUp, .dotDown {
-  display: inline-block;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dotChecking { background: var(--text-4); animation: pulse 1.5s ease-in-out infinite; }
-.dotUp       { background: #5dd47a; box-shadow: 0 0 6px rgba(93,212,122,0.5); }
-.dotDown     { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+.bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--border); }
+.disclaimer { font-size: 11px; color: var(--text-4); line-height: 1.5; max-width: 520px; }
+.bottomRight { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.legalLink { font-size: 11px; color: var(--text-3); transition: color var(--t-fast); }
+.legalLink:hover { color: var(--accent); }
+.bottomDot { font-size: 10px; color: var(--text-4); }
+.copy { font-size: 11px; color: var(--text-4); white-space: nowrap; }
 
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-
-/* ── Columns ── */
-.col { display: flex; flex-direction: column; gap: 4px; }
-
-.colHeading {
-  font-family: var(--font-display);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 12px;
-}
-
-.colLink {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 13px; color: var(--text-2);
-  padding: 5px 0;
-  transition: color var(--t-fast), padding-left var(--t-fast);
-}
-.colLink:hover { color: var(--text-1); padding-left: 4px; }
-.linkChevron { color: var(--text-4); font-size: 14px; flex-shrink: 0; transition: color var(--t-fast); }
-.colLink:hover .linkChevron { color: var(--accent); }
-
-/* ── Bottom bar ── */
-.bottom {
-  border-top: 1px solid var(--border);
-  padding: 18px 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.disclaimer {
-  font-size: 11.5px; color: var(--text-3); max-width: 500px; line-height: 1.5;
-}
-
-.copy {
-  font-family: var(--font-display);
-  font-size: 11px;
-  letter-spacing: 0.10em;
-  color: var(--text-4);
-  flex-shrink: 0;
-}
-
-/* ── Responsive ── */
-@media (max-width: 900px) {
-  .inner { grid-template-columns: 1fr 1fr; gap: 40px; }
-  .brand { grid-column: 1 / -1; }
-}
-
-@media (max-width: 560px) {
-  .inner { grid-template-columns: 1fr; gap: 32px; padding-top: 40px; }
-  .bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
+@media (max-width: 640px) {
+  .inner { flex-direction: column; align-items: flex-start; gap: 28px; padding: 32px 16px; }
+  .apiStatus { align-items: flex-start; }
+  .bottom { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
+  .bottomRight { flex-wrap: wrap; }
 }

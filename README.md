@@ -214,6 +214,14 @@ MIT — free to use, modify, and distribute.
 
 ---
 
+---
+
+## Disclaimer
+
+This project is open-source under the MIT License and is intended for self-hosting only. Any form of commercial use is strictly prohibited. ANIMEDEX does not host, upload, or store any media files and solely acts as an interface to access publicly available third-party content.
+
+---
+
 ## 🙏 Credits
 
 - [AniList](https://anilist.co) — anime metadata & OAuth
