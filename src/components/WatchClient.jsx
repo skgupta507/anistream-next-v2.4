@@ -47,6 +47,10 @@ const PREF_KEY = "player_source_pref";
 function loadSourcePref()       { try { return JSON.parse(localStorage.getItem(PREF_KEY) || "{}"); } catch { return {}; } }
 function saveSourcePref(update) { try { localStorage.setItem(PREF_KEY, JSON.stringify({ ...loadSourcePref(), ...update })); } catch {} }
 
+// Module-level dedup: prevents React StrictMode double-invoke from firing two
+// identical probe races for the same anilistId simultaneously.
+const probeInFlight = new Map(); // anilistId → Promise
+
 // ── Skeleton components ───────────────────────────────────────────────────────
 function EpisodeSkeleton() {
   return (
@@ -111,11 +115,13 @@ export default function WatchClient({ animeId, epSlug }) {
   const [sourceMode, setSourceMode] = useState("crysoline");
 
   // ── Source state ──────────────────────────────────────────────────────────
+  // mounted: false on SSR, true after hydration — prevents localStorage reads on server
+  const [mounted,       setMounted]       = useState(false);
   const [sourceMap,     setSourceMap]     = useState({});
   const [sourceLoading, setSourceLoading] = useState({});
-  const [activeSrcId,   setActiveSrcId]   = useState(() => {
-    try { return loadSourcePref().sourceId || ""; } catch { return ""; }
-  });
+  // activeSrcId: always start empty on SSR to avoid hydration mismatch.
+  // Populated from localStorage after mount in the useEffect below.
+  const [activeSrcId,   setActiveSrcId]   = useState("");
 
   // ── Stream data ───────────────────────────────────────────────────────────
   const [cryEps,        setCryEps]       = useState([]);
@@ -124,9 +130,7 @@ export default function WatchClient({ animeId, epSlug }) {
   const [cryStreamLoad, setCrySLoad]     = useState(false);
   const [cryStreamErr,  setCrySErr]      = useState(null);
   const [cryServers,    setCryServers]   = useState([]);
-  const [crySubType,    setCrySubType]   = useState(() => {
-    try { return loadSourcePref().subType || "sub"; } catch { return "sub"; }
-  });
+  const [crySubType,    setCrySubType]   = useState("sub"); // hydrated from localStorage after mount
   const [cryServer, setCryServer] = useState("");
   const [crySelSrc, setCrySelSrc] = useState(null);
 
@@ -284,6 +288,15 @@ export default function WatchClient({ animeId, epSlug }) {
   // ── Auto-load on mount: race all sources ──────────────────────────────────
   const streamRaceRan = useRef(false);
 
+  // ── Mount: hydrate client-only state from localStorage after SSR ─────────
+  useEffect(() => {
+    setMounted(true);
+    // Safe to read localStorage now — we're on the client
+    const pref = loadSourcePref();
+    if (pref.sourceId) setActiveSrcId(pref.sourceId);
+    if (pref.subType)  setCrySubType(pref.subType);
+  }, []);
+
   // Reset the race guard whenever the anime changes so navigating between
   // different anime pages always triggers a fresh source race.
   useEffect(() => {
@@ -315,10 +328,11 @@ export default function WatchClient({ animeId, epSlug }) {
 
     if (pref.subType) setCrySubType(pref.subType);
 
-    // Sequential source probe — avoids hammering Crysoline with parallel requests
-    // which causes 429 rate-limit blocks. We try sources one at a time,
-    // stopping as soon as the first working one is found.
-    (async () => {
+    // Sequential source probe — avoids hammering Crysoline with parallel requests.
+    // Module-level dedup: if StrictMode fires this effect twice for the same anilistId,
+    // the second call reuses the in-flight promise instead of starting a new race.
+    if (probeInFlight.has(anilistId)) return;
+    const probePromise = (async () => {
       for (const sourceId of allSrcIds) {
         try {
           console.log(`[watch] probing source: ${sourceId}`);
@@ -343,7 +357,9 @@ export default function WatchClient({ animeId, epSlug }) {
         }
       }
       console.log("[watch] all sources exhausted");
-    })();
+    })(); // invoke immediately — probePromise is the actual Promise
+    probeInFlight.set(anilistId, probePromise);
+    probePromise.finally(() => probeInFlight.delete(anilistId));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentEp?.epSlug, anilistId]);
 
@@ -590,7 +606,7 @@ export default function WatchClient({ animeId, epSlug }) {
 
           {sourceMode === "crysoline" && (
             <div className={styles.cryBody}>
-              {activeSrcId && (
+              {mounted && activeSrcId && (
                 <div className={styles.activeSource}>
                   <span className={styles.activeDot} />
                   <span>

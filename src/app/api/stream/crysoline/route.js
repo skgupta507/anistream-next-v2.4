@@ -188,7 +188,7 @@ export async function POST(request) {
         }
 
         const result = { episodes: episodes || [], count: (episodes || []).length };
-        if (result.count > 0) await setCachedAsync(cacheKey, result, 1800); // 30min
+        if (result.count > 0) await setCachedAsync(cacheKey, result, 7200); // 2h — reduce Vercel invocations
         return ok(result);
       }
 
@@ -204,7 +204,7 @@ export async function POST(request) {
         const servers = await getServersFromSource(sourceId, mappedId, episodeId);
         const result  = { servers: servers||[] };
 
-        if (result.servers.length > 0) await setCachedAsync(cacheKey, result, 300); // 5min
+        if (result.servers.length > 0) await setCachedAsync(cacheKey, result, 1800); // 30min — reduce Vercel invocations
         return ok(result);
       }
 
@@ -230,7 +230,7 @@ export async function POST(request) {
           );
 
           if (stream?.sources?.length > 0) {
-            await setCachedAsync(cacheKey, stream, 300); // 5min
+            await setCachedAsync(cacheKey, stream, 1800); // 30min — reduce Vercel invocations
           }
 
           return ok(stream);

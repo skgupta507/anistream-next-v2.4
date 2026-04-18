@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { AuthProvider } from "@/components/AuthProvider";
 import LandingGate from "@/components/LandingGate";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export const viewport = {
   themeColor: "#07060b",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           <Footer />
+        <ScrollToTop />
         </AuthProvider>
       </body>
     </html>

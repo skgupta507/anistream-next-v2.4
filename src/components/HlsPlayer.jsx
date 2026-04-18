@@ -400,6 +400,12 @@ export default function HlsPlayer({
   const [pip,          setPip]          = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
 
+  // ── Theatre mode ───────────────────────────────────────────────────────────
+  const [theatre,      setTheatre]      = useState(false);
+
+  // ── Shortcut overlay ───────────────────────────────────────────────────────
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   // ── Touch gesture tracking ─────────────────────────────────────────────────
   const touchStart = useRef(null);
 
@@ -945,6 +951,9 @@ export default function HlsPlayer({
         case "n":  if (hasNext) { cancelCountdown(); onNext?.(); } break;
         case "p":  if (hasPrev) { cancelCountdown(); onPrev?.(); } break;
         case "i":  togglePip(); break;
+        case "t":  setTheatre(v => !v); break;
+        case "s":  takeScreenshot(); break;
+        case "?":  setShowShortcuts(v => !v); break;
         default: break;
       }
     };
@@ -968,7 +977,25 @@ export default function HlsPlayer({
   }, []);
 
   // ── Picture-in-Picture ─────────────────────────────────────────────────────
-  const togglePip = useCallback(async () => {
+  // ── Screenshot ────────────────────────────────────────────────────────────
+  const takeScreenshot = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `animedex-screenshot-${Date.now()}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }, "image/png");
+  }, []);
+
+    const togglePip = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
     try {
@@ -1105,6 +1132,7 @@ export default function HlsPlayer({
       className={[
         styles.wrapper,
         fullscreen ? styles.fullscreen : "",
+        theatre    ? styles.theatre    : "",
         !showControls && playing ? styles.hideCursor : "",
       ].join(" ")}
       onMouseMove={() => showControlsFor()}
@@ -1261,6 +1289,30 @@ export default function HlsPlayer({
               Auto-next
             </button>
 
+            {/* Theatre mode button */}
+            <button
+              className={`${styles.ctrlBtn} ${theatre ? styles.ctrlBtnActive : ""}`}
+              onClick={() => setTheatre(v => !v)}
+              title="Theatre mode (T)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <path d="M8 19v2M16 19v2M8 3v2M16 3v2"/>
+              </svg>
+            </button>
+
+            {/* Screenshot button */}
+            <button
+              className={styles.ctrlBtn}
+              onClick={takeScreenshot}
+              title="Screenshot (S)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
+
             {/* PiP button */}
             {pipSupported && (
               <button
@@ -1271,6 +1323,18 @@ export default function HlsPlayer({
                 <PipIcon />
               </button>
             )}
+
+            {/* Shortcuts button */}
+            <button
+              className={`${styles.ctrlBtn} ${showShortcuts ? styles.ctrlBtnActive : ""}`}
+              onClick={() => setShowShortcuts(v => !v)}
+              title="Keyboard shortcuts (?)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>
+              </svg>
+            </button>
 
             {/* Subtitle toggle */}
             {resolvedSubs.length > 0 && (
@@ -1426,6 +1490,39 @@ export default function HlsPlayer({
           </div>
         </div>
       </div>
+
+      {/* ── Keyboard shortcuts overlay ── */}
+      {showShortcuts && (
+        <div className={styles.shortcutsOverlay} onClick={() => setShowShortcuts(false)}>
+          <div className={styles.shortcutsPanel} onClick={e => e.stopPropagation()}>
+            <div className={styles.shortcutsHeader}>
+              <h3>Keyboard Shortcuts</h3>
+              <button onClick={() => setShowShortcuts(false)} className={styles.shortcutsClose}>✕</button>
+            </div>
+            <div className={styles.shortcutsGrid}>
+              {[
+                ["Space / K", "Play / Pause"],
+                ["← / →",    "Seek ±5s"],
+                ["J / L",     "Seek ±10s"],
+                ["↑ / ↓",    "Volume ±10%"],
+                ["M",         "Mute"],
+                ["F",         "Fullscreen"],
+                ["T",         "Theatre mode"],
+                ["I",         "Picture-in-Picture"],
+                ["S",         "Screenshot"],
+                ["C",         "Toggle subtitles"],
+                ["N / P",     "Next / Prev episode"],
+                ["?",         "Show shortcuts"],
+              ].map(([key, desc]) => (
+                <div key={key} className={styles.shortcutRow}>
+                  <kbd className={styles.shortcutKey}>{key}</kbd>
+                  <span className={styles.shortcutDesc}>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

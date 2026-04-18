@@ -128,23 +128,21 @@ async function cryGet(path, params = {}, timeoutMs = 20000, retries = 1, signal4
  *   2. Add its id to FALLBACK_SOURCE_IDS if you want it in the auto-load race.
  */
 export const CRYSOLINE_SOURCES = [
-  // ── ACTIVE SOURCES ────────────────────────────────────────────────────────
-  { id: "animegg",   name: "AnimeGG",   site: "animegg.org",    langs: ["en","ja"], hasServers: false, isDefault: true },
-  { id: "anizone",   name: "Anizone",   site: "anizone.to",     langs: ["en","ja"], hasServers: false },
-  { id: "animepahe", name: "AnimePahe", site: "animepahe.pw",   langs: ["en","ja"], hasServers: false }, // API v1: animepahe.pw
-  { id: "anidap",    name: "Anidap",    site: "anidap.se",      langs: ["en","ja"], hasServers: true  }, // API v1: has /servers
+  // ── ACTIVE — stable, working sources ─────────────────────────────────────
+  { id: "animegg",  name: "AnimeGG",  site: "animegg.org", langs: ["en","ja"], hasServers: false, isDefault: true },
+  { id: "anizone",  name: "Anizone",  site: "anizone.to",  langs: ["en","ja"], hasServers: false },
 
-  // ── INACTIVE — re-enable as needed ───────────────────────────────────────
-  // { id: "animekai",      name: "AnimeKai",      site: "anikai.to",             langs: ["en","ja"], hasServers: false },
-  // { id: "kickassanime",  name: "KickAssAnime",  site: "kaa.lt",                langs: ["en","ja"], hasServers: false }, // API v1: kaa.lt
-  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe",     langs: ["en","ja"], hasServers: false },
-  // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",        langs: ["en","ja"], hasServers: false },
-  // { id: "animeyy",       name: "AnimeYY",       site: "animeyy.com",           langs: ["en","ja"], hasServers: false },
-  // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",           langs: ["en","ja"], hasServers: false },
-  // { id: "animeonsen",    name: "AnimeOnsen",    site: "animeonsen.xyz",        langs: ["en","ja"], hasServers: false },
-  // { id: "uniquestream",  name: "UniqueStream",  site: "anime.uniquestream.net",langs: ["en","ja"], hasServers: false },
-  // { id: "animerevival",  name: "AnimeRevival",  site: "animerevival.xyz",      langs: ["en","ja","tl"], hasServers: false },
-  // ── Sources with server selection ────────────────────────────────────────
+  // ── INACTIVE — Crysoline scrapers returning 500; re-enable when fixed ────
+  // { id: "animepahe", name: "AnimePahe", site: "animepahe.pw",   langs: ["en","ja"], hasServers: false },
+  // { id: "anidap",    name: "Anidap",    site: "anidap.se",      langs: ["en","ja"], hasServers: true  },
+  // { id: "animekai",  name: "AnimeKai",  site: "anikai.to",      langs: ["en","ja"], hasServers: false },
+  // { id: "kickassanime", name: "KickAssAnime", site: "kaa.lt",   langs: ["en","ja"], hasServers: false },
+  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe", langs: ["en","ja"], hasServers: false },
+  // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",    langs: ["en","ja"], hasServers: false },
+  // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",       langs: ["en","ja"], hasServers: false },
+  // { id: "animeonsen",    name: "AnimeOnsen",    site: "animeonsen.xyz",    langs: ["en","ja"], hasServers: false },
+  // { id: "uniquestream",  name: "UniqueStream",  site: "anime.uniquestream.net", langs: ["en","ja"], hasServers: false },
+  // ── Sources with /servers ────────────────────────────────────────────────
   // { id: "anicore",  name: "Anicore",  site: "anikage.cc",     langs: ["en","ja","id"], hasServers: true },
   // { id: "animex",   name: "Animex",   site: "animex.one",     langs: ["en","ja","id"], hasServers: true },
   // { id: "animeav1", name: "AnimeAV1", site: "animeav1.com",   langs: ["es"],           hasServers: true },
