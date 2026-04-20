@@ -314,3 +314,12 @@
   .logoText { display: none; }
   .searchOpen .input { width: 150px; }
 }
+
+/* Settings icon link */
+.settingsLink {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: var(--r-sm);
+  color: var(--text-3);
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.settingsLink:hover { color: var(--text-1); background: var(--bg-elevated); }

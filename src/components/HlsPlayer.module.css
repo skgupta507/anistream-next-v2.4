@@ -518,3 +518,60 @@
     height: 30px;
   }
 }
+
+/* ── Theatre mode ─────────────────────────────────────────────────── */
+.theatre {
+  width: 100%;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+}
+
+/* ── Keyboard shortcuts overlay ───────────────────────────────────── */
+.shortcutsOverlay {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.shortcutsPanel {
+  background: #13101e;
+  border: 1px solid rgba(192,57,77,0.25);
+  border-radius: 12px;
+  padding: 20px 24px;
+  width: min(480px, 90%);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.shortcutsHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.shortcutsHeader h3 {
+  font-size: 15px; font-weight: 700; color: #f0eaf5;
+  letter-spacing: 0.03em; margin: 0;
+}
+.shortcutsClose {
+  background: none; border: none; color: #9a8faa;
+  font-size: 16px; cursor: pointer; padding: 2px 6px;
+  border-radius: 4px; transition: color 0.15s;
+}
+.shortcutsClose:hover { color: #f0eaf5; }
+.shortcutsGrid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.shortcutRow {
+  display: flex; align-items: center; gap: 10px;
+}
+.shortcutKey {
+  font-size: 11px; font-weight: 600;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 5px; padding: 2px 8px;
+  color: #f0eaf5; white-space: nowrap; min-width: 52px;
+  text-align: center; font-family: monospace;
+}
+.shortcutDesc {
+  font-size: 12px; color: #9a8faa;
+}

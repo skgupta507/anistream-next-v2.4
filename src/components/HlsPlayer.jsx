@@ -338,6 +338,7 @@ export default function HlsPlayer({
   // a .m3u8 extension, so detectFormat() wrongly falls back to "hls".
   // Passing isHLS=false forces the MP4/direct-video code path.
   isHLS            = null,
+  noProxy          = false, // reserved — not used (CDN CORS blocks direct browser fetch)
   // onStreamError: called when the stream URL is unreachable (e.g. proxy 502).
   // WatchClient uses this to auto-try the next source in the fallback chain
   // without waiting for the user to manually switch.
@@ -360,7 +361,11 @@ export default function HlsPlayer({
   // refererRef: always holds the latest referer so the [src] effect (which
   // must NOT list referer as a dep — that would re-init hls on every headers
   // update) can still read the correct value when building the proxied URL.
-  const refererRef = useRef("");
+  const refererRef  = useRef("");
+  // wasPlayingRef: captures play state before src changes.
+  // null = first load (no previous state), true = was playing, false = was paused.
+  // Used in onReady() so switching servers while paused stays paused.
+  const wasPlayingRef = useRef(null);
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [error,        setError]        = useState(null);
@@ -399,6 +404,12 @@ export default function HlsPlayer({
   // ── PiP ────────────────────────────────────────────────────────────────────
   const [pip,          setPip]          = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
+
+  // ── Theatre mode ───────────────────────────────────────────────────────────
+  const [theatre,      setTheatre]      = useState(false);
+
+  // ── Shortcut overlay ───────────────────────────────────────────────────────
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // ── Touch gesture tracking ─────────────────────────────────────────────────
   const touchStart = useRef(null);
@@ -537,8 +548,14 @@ export default function HlsPlayer({
     const video = videoRef.current;
     if (!video) return;
 
+    // hls cleanup is now in the useEffect return (cleanup function) above.
+    // The cleanup runs before this new effect body, so audio is already stopped.
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
 
+    // Always use server-side proxy for m3u8 manifests.
+    // vid-cdn.xyz returns Access-Control-Allow-Origin: https://anizone.to (not *)
+    // so the browser cannot fetch it directly. Server-side proxy fetches it
+    // server-to-server (no CORS) then rewrites segments to absolute CDN URLs.
     const proxied = proxyUrl(src, refererRef.current);
 
     const savedTime = (() => {
@@ -549,14 +566,17 @@ export default function HlsPlayer({
 
     const onReady = () => {
       setLoading(false);
-      // FIX: Restore persisted mute/volume state onto this stream.
-      // The <video> element is reused across episode changes (no remount),
-      // so when hls.js reinitialises it may reset volume/muted to defaults.
-      // Reading from refs avoids stale closures since this effect depends only on [src].
       video.muted  = mutedRef.current;
       video.volume = volumeRef.current;
       if (savedTime > 10) video.currentTime = savedTime;
-      if (autoplay) video.play().catch(() => {});
+      // wasPlayingRef.current:
+      //   null  → first ever load — use the autoplay prop
+      //   true  → was playing before src changed → resume playback
+      //   false → user had manually paused → stay paused
+      const shouldPlay = wasPlayingRef.current === null
+        ? autoplay
+        : wasPlayingRef.current;
+      if (shouldPlay) video.play().catch(() => {});
     };
 
     if (format === "hls") {
@@ -603,6 +623,7 @@ export default function HlsPlayer({
         });
 
         hlsRef.current = hls;
+
         hls.loadSource(proxied);
         hls.attachMedia(video);
 
@@ -773,8 +794,22 @@ export default function HlsPlayer({
       video.addEventListener("error", handleMp4Error, { once: true });
     }
 
+    // ── Cleanup: destroy hls FIRST, then silence the video element ──────────
+    // Order matters: hls.destroy() detaches the MediaSource and stops all segment
+    // fetching. Only then clear video.src — this prevents the browser from playing
+    // already-decoded audio frames that are still in the pipeline after destroy().
     return () => {
+      const v = videoRef.current;
+      // Capture play state before we touch anything
+      if (v) wasPlayingRef.current = !v.paused;
+      // 1. Destroy hls first — detaches MediaSource, stops all network activity
       if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+      // 2. Now silence and reset the video element
+      if (v) {
+        v.pause();
+        v.src = "";   // setting .src="" is safer than removeAttribute in Chrome
+        v.load();     // flushes decode buffers
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
@@ -945,6 +980,9 @@ export default function HlsPlayer({
         case "n":  if (hasNext) { cancelCountdown(); onNext?.(); } break;
         case "p":  if (hasPrev) { cancelCountdown(); onPrev?.(); } break;
         case "i":  togglePip(); break;
+        case "t":  setTheatre(v => !v); break;
+        case "s":  takeScreenshot(); break;
+        case "?":  setShowShortcuts(v => !v); break;
         default: break;
       }
     };
@@ -968,7 +1006,25 @@ export default function HlsPlayer({
   }, []);
 
   // ── Picture-in-Picture ─────────────────────────────────────────────────────
-  const togglePip = useCallback(async () => {
+  // ── Screenshot ────────────────────────────────────────────────────────────
+  const takeScreenshot = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `animedex-screenshot-${Date.now()}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }, "image/png");
+  }, []);
+
+    const togglePip = useCallback(async () => {
     const video = videoRef.current;
     if (!video) return;
     try {
@@ -1105,6 +1161,7 @@ export default function HlsPlayer({
       className={[
         styles.wrapper,
         fullscreen ? styles.fullscreen : "",
+        theatre    ? styles.theatre    : "",
         !showControls && playing ? styles.hideCursor : "",
       ].join(" ")}
       onMouseMove={() => showControlsFor()}
@@ -1261,6 +1318,30 @@ export default function HlsPlayer({
               Auto-next
             </button>
 
+            {/* Theatre mode button */}
+            <button
+              className={`${styles.ctrlBtn} ${theatre ? styles.ctrlBtnActive : ""}`}
+              onClick={() => setTheatre(v => !v)}
+              title="Theatre mode (T)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <path d="M8 19v2M16 19v2M8 3v2M16 3v2"/>
+              </svg>
+            </button>
+
+            {/* Screenshot button */}
+            <button
+              className={styles.ctrlBtn}
+              onClick={takeScreenshot}
+              title="Screenshot (S)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
+
             {/* PiP button */}
             {pipSupported && (
               <button
@@ -1271,6 +1352,18 @@ export default function HlsPlayer({
                 <PipIcon />
               </button>
             )}
+
+            {/* Shortcuts button */}
+            <button
+              className={`${styles.ctrlBtn} ${showShortcuts ? styles.ctrlBtnActive : ""}`}
+              onClick={() => setShowShortcuts(v => !v)}
+              title="Keyboard shortcuts (?)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>
+              </svg>
+            </button>
 
             {/* Subtitle toggle */}
             {resolvedSubs.length > 0 && (
@@ -1426,6 +1519,39 @@ export default function HlsPlayer({
           </div>
         </div>
       </div>
+
+      {/* ── Keyboard shortcuts overlay ── */}
+      {showShortcuts && (
+        <div className={styles.shortcutsOverlay} onClick={() => setShowShortcuts(false)}>
+          <div className={styles.shortcutsPanel} onClick={e => e.stopPropagation()}>
+            <div className={styles.shortcutsHeader}>
+              <h3>Keyboard Shortcuts</h3>
+              <button onClick={() => setShowShortcuts(false)} className={styles.shortcutsClose}>✕</button>
+            </div>
+            <div className={styles.shortcutsGrid}>
+              {[
+                ["Space / K", "Play / Pause"],
+                ["← / →",    "Seek ±5s"],
+                ["J / L",     "Seek ±10s"],
+                ["↑ / ↓",    "Volume ±10%"],
+                ["M",         "Mute"],
+                ["F",         "Fullscreen"],
+                ["T",         "Theatre mode"],
+                ["I",         "Picture-in-Picture"],
+                ["S",         "Screenshot"],
+                ["C",         "Toggle subtitles"],
+                ["N / P",     "Next / Prev episode"],
+                ["?",         "Show shortcuts"],
+              ].map(([key, desc]) => (
+                <div key={key} className={styles.shortcutRow}>
+                  <kbd className={styles.shortcutKey}>{key}</kbd>
+                  <span className={styles.shortcutDesc}>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

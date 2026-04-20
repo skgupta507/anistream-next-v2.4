@@ -98,6 +98,12 @@ export default function Footer() {
           AnimeDex does not host any video files. All content is sourced from publicly available third-party providers.
         </p>
         <div className={styles.bottomRight}>
+          <Link href="/dmca"    className={styles.legalLink}>DMCA</Link>
+          <span className={styles.bottomDot}>·</span>
+          <Link href="/features"  className={styles.legalLink}>Features</Link>
+          <span className={styles.bottomDot}>·</span>
+          <Link href="/settings"  className={styles.legalLink}>Settings</Link>
+          <span className={styles.bottomDot}>·</span>
           <Link href="/privacy" className={styles.legalLink}>Privacy</Link>
           <span className={styles.bottomDot}>·</span>
           <Link href="/terms"   className={styles.legalLink}>Terms</Link>

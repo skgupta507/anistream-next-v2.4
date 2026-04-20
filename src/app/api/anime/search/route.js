@@ -1,3 +1,4 @@
+export const revalidate = 120;
 /**
  * GET /api/anime/search?q=&page=
  *

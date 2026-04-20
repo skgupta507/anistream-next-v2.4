@@ -128,30 +128,28 @@ async function cryGet(path, params = {}, timeoutMs = 20000, retries = 1, signal4
  *   2. Add its id to FALLBACK_SOURCE_IDS if you want it in the auto-load race.
  */
 export const CRYSOLINE_SOURCES = [
-  // ── ACTIVE SOURCES ────────────────────────────────────────────────────────
-  { id: "animegg",   name: "AnimeGG",   site: "animegg.org",    langs: ["en","ja"], hasServers: false, isDefault: true },
+  // ── ACTIVE — stable, working sources ─────────────────────────────────────
+  { id: "animepahe", name: "AnimePahe", site: "animepahe.pw",   langs: ["en","ja"], hasServers: false, isDefault: true },
+  { id: "animegg",   name: "AnimeGG",   site: "animegg.org",    langs: ["en","ja"], hasServers: false },
   { id: "anizone",   name: "Anizone",   site: "anizone.to",     langs: ["en","ja"], hasServers: false },
-  { id: "animepahe", name: "AnimePahe", site: "animepahe.pw",   langs: ["en","ja"], hasServers: false }, // API v1: animepahe.pw
-  { id: "anidap",    name: "Anidap",    site: "anidap.se",      langs: ["en","ja"], hasServers: true  }, // API v1: has /servers
 
-  // ── INACTIVE — re-enable as needed ───────────────────────────────────────
-  // { id: "animekai",      name: "AnimeKai",      site: "anikai.to",             langs: ["en","ja"], hasServers: false },
-  // { id: "kickassanime",  name: "KickAssAnime",  site: "kaa.lt",                langs: ["en","ja"], hasServers: false }, // API v1: kaa.lt
-  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe",     langs: ["en","ja"], hasServers: false },
-  // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",        langs: ["en","ja"], hasServers: false },
-  // { id: "animeyy",       name: "AnimeYY",       site: "animeyy.com",           langs: ["en","ja"], hasServers: false },
-  // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",           langs: ["en","ja"], hasServers: false },
-  // { id: "animeonsen",    name: "AnimeOnsen",    site: "animeonsen.xyz",        langs: ["en","ja"], hasServers: false },
-  // { id: "uniquestream",  name: "UniqueStream",  site: "anime.uniquestream.net",langs: ["en","ja"], hasServers: false },
-  // { id: "animerevival",  name: "AnimeRevival",  site: "animerevival.xyz",      langs: ["en","ja","tl"], hasServers: false },
-  // ── Sources with server selection ────────────────────────────────────────
+  // ── INACTIVE — Crysoline scrapers returning 500; re-enable when fixed ────
+  // { id: "anidap",    name: "Anidap",    site: "anidap.se",      langs: ["en","ja"], hasServers: true  },
+  // { id: "animekai",  name: "AnimeKai",  site: "anikai.to",      langs: ["en","ja"], hasServers: false },
+  // { id: "kickassanime", name: "KickAssAnime", site: "kaa.lt",   langs: ["en","ja"], hasServers: false },
+  // { id: "animeparadise", name: "AnimeParadise", site: "animeparadise.moe", langs: ["en","ja"], hasServers: false },
+  // { id: "animeheaven",   name: "AnimeHeaven",   site: "animeheaven.me",    langs: ["en","ja"], hasServers: false },
+  // { id: "animenexus",    name: "AnimeNexus",    site: "anime.nexus",       langs: ["en","ja"], hasServers: false },
+  // { id: "animeonsen",    name: "AnimeOnsen",    site: "animeonsen.xyz",    langs: ["en","ja"], hasServers: false },
+  // { id: "uniquestream",  name: "UniqueStream",  site: "anime.uniquestream.net", langs: ["en","ja"], hasServers: false },
+  // ── Sources with /servers ────────────────────────────────────────────────
   // { id: "anicore",  name: "Anicore",  site: "anikage.cc",     langs: ["en","ja","id"], hasServers: true },
   // { id: "animex",   name: "Animex",   site: "animex.one",     langs: ["en","ja","id"], hasServers: true },
   // { id: "animeav1", name: "AnimeAV1", site: "animeav1.com",   langs: ["es"],           hasServers: true },
   // { id: "animelib", name: "AnimeLib", site: "v3.animelib.org",langs: ["ru","ja"],      hasServers: true },
 ];
 
-export const DEFAULT_SOURCE_ID = "animegg";
+export const DEFAULT_SOURCE_ID = "animepahe";
 
 // English-primary sources (best for English-speaking audiences)
 export const EN_SOURCE_IDS = CRYSOLINE_SOURCES
@@ -166,12 +164,9 @@ export const ALL_SOURCE_IDS = CRYSOLINE_SOURCES.map(s => s.id);
 // Fallback order when AnimeGG fails.
 // Only active sources listed here.
 export const FALLBACK_SOURCE_IDS = [
-  // Auto-probe fallback chain (sources here are tried automatically when AnimeGG fails).
-  // Only list sources whose Crysoline scrapers are confirmed working.
-  // If a source returns 500 on episodes, Crysoline's scraper is broken for it — remove it.
-  "anizone",    // fallback 1 — working (intermittent 500 on /sources, not episodes)
-  // "animepahe",  // Crysoline scraper returning 500 "Animepahe Episodes failed 404"
-  // "anidap",     // Crysoline scraper returning 500 "Failed to fetch episodes"
+  // Fallback chain when AnimePahe (default) fails.
+  "animegg",   // fallback 1 — most reliable, direct MP4 CDN
+  "anizone",   // fallback 2 — HLS, good coverage
 ];
 
 // ── Title helpers ──────────────────────────────────────────────────────────────
@@ -306,9 +301,11 @@ export async function mapAnilistToAllSources(anilistId, titles = []) {
 export async function getEpisodesFromSource(sourceId, mappedId) {
   if (!sourceId || !mappedId) return [];
 
+  // animepahe episodes endpoint is slower — give it more time
+  const epsTimeout = sourceId === "animepahe" ? 30000 : 20000;
   const data = await cryGet(
     `/api/v1/anime/${sourceId}/episodes/${encodeURIComponent(mappedId)}`,
-    {}, 20000, 1, true  // signal404=true: cached slug is stale
+    {}, epsTimeout, 1, true  // signal404=true: cached slug is stale
   );
 
   if (data === STALE_MAPPING) return STALE_MAPPING;
@@ -329,7 +326,36 @@ export async function getEpisodesFromSource(sourceId, mappedId) {
   }));
 }
 
-export async function getServersFromSource(sourceId, mappedId, episodeId) {
+async function resolveEpisodeId(sourceId, mappedId, episodeId, episodeNumber) {
+  if (!mappedId) return episodeId;
+  const epNum = Number(episodeNumber);
+  const hasEpNum = Number.isFinite(epNum) && epNum > 0;
+  if (sourceId !== "animepahe" && sourceId !== "anizone") return episodeId;
+
+  // animepahe expects a hash episodeId, not a slug like "...-episode-1".
+  if (sourceId === "animepahe" && /^[a-f0-9]{32,}$/i.test(episodeId)) return episodeId;
+
+  // anizone expects a base64 episodeId from the episodes list (e.g. "ZjFnMWF1eXgvMQ==").
+  if (sourceId === "anizone" && /^[A-Za-z0-9+/]+={0,2}$/.test(episodeId || "") && episodeId?.length >= 8) {
+    return episodeId;
+  }
+
+  if (!hasEpNum) {
+    if (!episodeId) return episodeId;
+    const match = episodeId.match(/(?:episode|ep)[-\s]*(\d+)/i) || episodeId.match(/(\d+)$/);
+    const parsed = match ? Number(match[1]) : NaN;
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return resolveEpisodeId(sourceId, mappedId, episodeId, parsed);
+    }
+    return episodeId;
+  }
+
+  const episodes = await getEpisodesFromSource(sourceId, mappedId);
+  const ep = episodes.find(e => Number(e.number) === epNum);
+  return ep?.id || episodeId;
+}
+
+export async function getServersFromSource(sourceId, mappedId, episodeId, episodeNumber) {
   const src = CRYSOLINE_SOURCES.find(s => s.id === sourceId);
   if (!src?.hasServers) return [];
   if (!mappedId || !episodeId) return [];
@@ -346,19 +372,23 @@ export async function getServersFromSource(sourceId, mappedId, episodeId) {
     return [];
   }
 
+  const resolvedEpisodeId = await resolveEpisodeId(sourceId, mappedId, episodeId, episodeNumber);
+
   const data = await cryGet(
     `/api/v1/anime/${sourceId}/servers`,
-    { id: mappedId, episodeId },
+    { id: mappedId, episodeId: resolvedEpisodeId },
     20000, 1
   );
   if (!data) return [];
   return data.servers || (Array.isArray(data) ? data : []);
 }
 
-export async function getSourcesFromSource(sourceId, mappedId, episodeId, subType = "", server = "") {
+export async function getSourcesFromSource(sourceId, mappedId, episodeId, subType = "", server = "", episodeNumber) {
   if (!mappedId || !episodeId) return { sources: [], subtitles: [], headers: {} };
 
-  const params = { id: mappedId, episodeId };
+  const resolvedEpisodeId = await resolveEpisodeId(sourceId, mappedId, episodeId, episodeNumber);
+
+  const params = { id: mappedId, episodeId: resolvedEpisodeId };
   if (subType) params.subType = subType;
   if (server)  params.server  = server;
 
@@ -374,7 +404,10 @@ export async function getSourcesFromSource(sourceId, mappedId, episodeId, subTyp
     return { sources: [], subtitles: [], headers: {} };
   }
 
-  const data = await cryGet(`/api/v1/anime/${sourceId}/sources`, params, 20000, 1);
+  // animepahe needs more time — its CDN is slower to respond than AnimeGG
+  const srcTimeout = sourceId === "animepahe" ? 30000 : 20000;
+  const srcRetries = sourceId === "animepahe" ? 2 : 1;
+  const data = await cryGet(`/api/v1/anime/${sourceId}/sources`, params, srcTimeout, srcRetries);
   if (!data) return { sources: [], subtitles: [], headers: {} };
 
   return {

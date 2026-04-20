@@ -228,8 +228,8 @@ export default function AnimeDetailClient({ animeId, initialData }) {
                 </a>
               )}
               {/* External streaming links */}
-              {more?.externalLinks?.slice(0, 2).map(l => (
-                <a key={l.site} href={l.url} target="_blank" rel="noreferrer" className="btn-ghost">
+              {more?.externalLinks?.slice(0, 2).map((l, i) => (
+                <a key={`${l.url || l.site}-${i}`} href={l.url} target="_blank" rel="noreferrer" className="btn-ghost">
                   {l.site} ↗
                 </a>
               ))}
@@ -343,8 +343,8 @@ export default function AnimeDetailClient({ animeId, initialData }) {
                 <div className={styles.tagsBlock}>
                   <p className={styles.tagsLabel}>Tags</p>
                   <div className={styles.tagsRow}>
-                    {(more?.tags || anime.tags || []).slice(0, 10).map(t => (
-                      <span key={typeof t === "string" ? t : t.name} className={styles.tagPill}>
+                    {(more?.tags || anime.tags || []).slice(0, 10).map((t, i) => (
+                      <span key={`tag-${i}-${typeof t === "string" ? t : t.name}`} className={styles.tagPill}>
                         {typeof t === "string" ? t : t.name}
                       </span>
                     ))}
@@ -356,8 +356,8 @@ export default function AnimeDetailClient({ animeId, initialData }) {
               {more?.synonyms?.length > 0 && (
                 <div className={styles.tagsBlock}>
                   <p className={styles.tagsLabel}>Also Known As</p>
-                  {more.synonyms.map(s => (
-                    <p key={s} className={styles.synonymLine}>{s}</p>
+                  {more.synonyms.map((s, i) => (
+                    <p key={`syn-${i}-${s}`} className={styles.synonymLine}>{s}</p>
                   ))}
                 </div>
               )}
@@ -388,8 +388,8 @@ export default function AnimeDetailClient({ animeId, initialData }) {
                 <div className={styles.tagsBlock}>
                   <p className={styles.tagsLabel}>Stream On</p>
                   <div className={styles.extLinks}>
-                    {more.externalLinks.map(l => (
-                      <a key={l.site} href={l.url} target="_blank" rel="noreferrer" className={styles.extLink}>
+                    {more.externalLinks.map((l, i) => (
+                      <a key={`${l.url || l.site}-${i}`} href={l.url} target="_blank" rel="noreferrer" className={styles.extLink}>
                         {l.site}
                       </a>
                     ))}
